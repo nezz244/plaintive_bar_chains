@@ -49,34 +49,67 @@ router.post('/bars/:bar/sales', async (req, res) => {
   const { product_id, employee_id, quantity } = req.body
 
   try {
+    if (!product_id || !employee_id || !quantity || quantity < 1)
+      return res.status(400).json({ error: 'Invalid sale data' })
+
     // Get bar id from slug
     const [[bar]] = await db.query(`SELECT id FROM bars WHERE name = ?`, [barSlug])
     if (!bar) return res.status(404).json({ error: 'Bar not found' })
 
-    // Get product selling price from DB
+    // Get product info from DB (selling price + units per case)
     const [[product]] = await db.query(
-      `SELECT selling_price FROM products WHERE id = ?`,
+      `SELECT selling_price, units_per_case FROM products WHERE id = ?`,
       [product_id]
     )
     if (!product) return res.status(404).json({ error: 'Product not found' })
 
-    const unit_price = Number(product.selling_price)
-    const total_price = quantity * unit_price
+    // Get current stock for this bar & product
+    const [[stock]] = await db.query(
+      `SELECT units_available FROM bar_stock WHERE bar_id = ? AND product_id = ?`,
+      [bar.id, product_id]
+    )
+    if (!stock) return res.status(404).json({ error: 'Product not in bar stock' })
 
-    // Insert sale
+    const { units_available } = stock
+    const { units_per_case, selling_price } = product
+    const totalBottlesAvailable = units_available * units_per_case
+
+    // Check enough bottles
+    if (quantity > totalBottlesAvailable)
+      return res.status(400).json({ error: `Not enough stock. Only ${totalBottlesAvailable} bottles available.` })
+
+    // Deduct bottles → update cases
+    const newUnitsAvailable = (totalBottlesAvailable - quantity) / units_per_case
     await db.query(
+      `UPDATE bar_stock SET units_available = ? WHERE bar_id = ? AND product_id = ?`,
+      [newUnitsAvailable, bar.id, product_id]
+    )
+
+    // Insert sale record
+    const unit_price = Number(selling_price)
+    const total_price = quantity * unit_price
+    const [result] = await db.query(
       `INSERT INTO sales (bar_id, product_id, employee_id, quantity, unit_price, total_price, sale_time)
        VALUES (?, ?, ?, ?, ?, ?, NOW())`,
       [bar.id, product_id, employee_id, quantity, unit_price, total_price]
     )
 
-    res.json({ success: true, unit_price, total_price })
+    // Return sale
+    const [[newSale]] = await db.query(
+      `SELECT e.name AS employee, p.name AS product, s.quantity, s.unit_price, s.total_price, s.sale_time
+       FROM sales s
+       JOIN employees e ON e.id = s.employee_id
+       JOIN products p ON p.id = s.product_id
+       WHERE s.id = ?`,
+      [result.insertId]
+    )
+
+    res.json(newSale)
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Failed to record sale' })
   }
 })
-
 
 
   // GET BEST SELLING PRODUCTS
@@ -109,11 +142,14 @@ router.get('/:bar/stock', async (req, res) => {
 
     const [rows] = await db.query(`
       SELECT
-        p.name AS product,
+        p.id            AS product_id,
+        p.name          AS product,
         bs.units_available,
-        p.buying_price
+        p.buying_price,
+        p.selling_price,
+        p.units_per_case          -- <-- add this
       FROM bar_stock bs
-      JOIN products p ON p.id = bs.product_id
+             JOIN products p ON p.id = bs.product_id
       WHERE bs.bar_id = ?
     `, [barId])
 
@@ -125,9 +161,12 @@ router.get('/:bar/stock', async (req, res) => {
 
 router.get('/:bar/sales', async (req, res) => {
   try {
-    const barId = await getBarId(req.params.bar)
+    // Get the bar ID from the bar slug
+    const barId = await getBarId(req.params.bar);
 
-    const [rows] = await db.query(`
+    // Fetch sales data for the bar
+    const [rows] = await db.query(
+      `
       SELECT
         e.name AS employee,
         p.name AS product,
@@ -140,13 +179,17 @@ router.get('/:bar/sales', async (req, res) => {
       JOIN products p ON p.id = s.product_id
       WHERE s.bar_id = ?
       ORDER BY s.sale_time DESC
-    `, [barId])
+      `,
+      [barId]
+    );
 
-    res.json(rows)
+    // Return the sales as JSON
+    res.json(rows);
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    console.error(err);
+    res.status(500).json({ message: err.message });
   }
-})
+});
 
 router.get('/:bar/employee-ranking', async (req, res) => {
   try {

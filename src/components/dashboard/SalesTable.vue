@@ -5,7 +5,9 @@
   >
     <!-- Header -->
     <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Sales</h3>
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">
+        Sales for {{ barSlug }}
+      </h3>
 
       <div class="flex items-center gap-3">
         <button
@@ -29,10 +31,9 @@
           <label class="block text-gray-700 dark:text-gray-300 text-sm mb-1">Product</label>
           <select v-model="saleForm.productId" @change="onProductChange" class="input w-full">
             <option value="">Select product</option>
-            <option v-for="p in products" :key="p.id" :value="Number(p.id)">
+            <option v-for="p in products" :key="p.product_id" :value="Number(p.product_id)">
               {{ p.product }}
             </option>
-
           </select>
         </div>
 
@@ -41,7 +42,7 @@
           <label class="block text-gray-700 dark:text-gray-300 text-sm mb-1">Employee</label>
           <select v-model="saleForm.employeeId" class="input w-full">
             <option value="">Select employee</option>
-            <option v-for="e in employees.data" :key="e.id" :value="e.id">
+            <option v-for="e in normalizedEmployees" :key="e.id" :value="e.id">
               {{ e.name }}
             </option>
           </select>
@@ -49,7 +50,7 @@
 
         <!-- Quantity -->
         <div>
-          <label class="block text-gray-700 dark:text-gray-300 text-sm mb-1">Quantity</label>
+          <label class="block text-gray-700 dark:text-gray-300 text-sm mb-1">Quantity (bottles)</label>
           <input
             type="number"
             min="1"
@@ -94,7 +95,7 @@
         <tr class="border-t border-gray-100 dark:border-gray-800">
           <th class="py-3 text-left">Employee</th>
           <th class="py-3 text-left">Product</th>
-          <th class="py-3 text-left">Qty</th>
+          <th class="py-3 text-left">Qty (bottles)</th>
           <th class="py-3 text-left">Unit Price</th>
           <th class="py-3 text-left">Amount</th>
           <th class="py-3 text-left">Date</th>
@@ -121,15 +122,46 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 
+// ---------------- Types ----------------
+type Sale = {
+  employee: string
+  product: string
+  quantity: number
+  unit_price: number
+  total_price: number
+  sale_time: string
+}
+
+type Product = {
+  product_id: number
+  product: string
+  units_available: number
+  selling_price: number
+  buying_price: string
+  units_per_case: number
+}
+
+type Employee = {
+  id: number
+  name: string
+}
+
+// ---------------- Props ----------------
 const props = defineProps<{
-  sales: any[]
-  products: { product: string; units_available: number; id: number }[]  // your bar_stock + product info
-  employees: { id: number; name: string }[]
   barSlug: string
+  sales: Sale[]
+  products: Product[]
+  employees: Employee[] | { data: Employee[] }
 }>()
 
+// ---------------- Emits ----------------
+const emit = defineEmits<{
+  (e: 'sale-recorded', sale: Sale): void
+}>()
+
+// ---------------- Form ----------------
 const openForm = ref(false)
 const saleForm = reactive({
   productId: null as number | null,
@@ -139,21 +171,24 @@ const saleForm = reactive({
   amount: 0,
 })
 
-// Format decimal safely
+// ---------------- Helpers ----------------
 function formatPrice(value: any) {
   const num = Number(value)
   return isNaN(num) ? '0.00' : num.toFixed(2)
 }
 
+// Normalize employees (handle .data if present)
+const normalizedEmployees = computed(() => {
+  if (Array.isArray(props.employees)) return props.employees
+  if (props.employees && 'data' in props.employees) return props.employees.data
+  return []
+})
+
 // Update unit price when product changes
 function onProductChange() {
-  const product = props.products.find(p => p.id === saleForm.productId)
-  saleForm.unitPrice = product ? parseFloat(product.total_revenue) / parseInt(product.total_sold) : 0
+  const product = props.products.find(p => p.product_id === saleForm.productId)
+  saleForm.unitPrice = product ? product.selling_price : 0
   calculateAmount()
-
-  // Log product info
-  console.log('Selected productId:', saleForm.productId)
-  console.log('Selected product object:', product)
 }
 
 // Calculate total amount
@@ -171,18 +206,14 @@ function resetForm() {
   saleForm.amount = 0
 }
 
-// Record sale
+// ---------------- Record Sale ----------------
 async function recordSale() {
-  console.log('ProductID', saleForm.productId)
-
   if (!saleForm.productId || !saleForm.employeeId || saleForm.quantity < 1) {
-    console.warn('Sale form incomplete:', saleForm)
     alert('Please fill all fields')
     return
   }
 
   try {
-    console.log(`Sending POST request for bar ${props.selectedBarId}`)
     const res = await fetch(`http://localhost:3000/api/bars/${props.barSlug}/sales`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -193,27 +224,28 @@ async function recordSale() {
       }),
     })
 
-
-    console.log('Response received:', res)
-
     if (!res.ok) {
-      console.error('HTTP error:', res.status, await res.text())
-      throw new Error(`HTTP error ${res.status}`)
+      const errData = await res.json()
+      throw new Error(errData.message || `HTTP error ${res.status}`)
     }
 
-    const newSale = await res.json()
-    console.log('New sale recorded:', newSale)
+    const newSale: Sale = await res.json()
 
-    // Update table
-    props.sales.push(newSale)
-    console.log('Sales table updated, total sales now:', props.sales.length)
+    // Emit event to parent
+    emit('sale-recorded', newSale)
+
+    // Deduct stock locally for instant UI update
+    const product = props.products.find(p => p.product_id === saleForm.productId)
+    if (product) {
+      product.units_available -= saleForm.quantity
+    }
 
     // Reset form
     resetForm()
-    console.log('Sale form reset')
+
   } catch (err) {
     console.error('Failed to record sale', err)
-    alert('Failed to record sale')
+    alert(`Failed to record sale: ${err.message}`)
   }
 }
 

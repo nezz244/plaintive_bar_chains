@@ -1,11 +1,15 @@
 <template>
   <div class="rounded-2xl border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-white/[0.03]">
+    <!-- Header + Total Stock Value + Total Bottles -->
     <div class="px-5 pt-5 bg-white shadow-default rounded-2xl pb-11 dark:bg-gray-900 sm:px-6 sm:pt-6">
       <div class="flex justify-between">
         <div>
           <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ barName }} Stock</h3>
           <p class="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
             Total Value: {{ formatCurrency(totalStockValue) }}
+          </p>
+          <p class="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
+            Total Bottles: {{ totalBottles }}
           </p>
         </div>
         <div>
@@ -24,6 +28,7 @@
         </div>
       </div>
 
+      <!-- Radial Chart -->
       <div class="relative max-h-[195px]">
         <div class="radial-bar-chart">
           <VueApexCharts
@@ -41,6 +46,7 @@
       </div>
     </div>
 
+    <!-- Individual Stock Items -->
     <div class="px-6 py-5">
       <div
         v-for="item in warehouseStock"
@@ -48,11 +54,19 @@
         class="flex justify-between py-1 border-b border-gray-200 dark:border-gray-800"
       >
         <p class="text-gray-700 dark:text-gray-300">{{ item.product }}</p>
-        <p class="font-semibold text-gray-900 dark:text-white">{{ item.units_available }} Cases</p>
+        <div class="text-right">
+          <p class="font-semibold text-gray-900 dark:text-white">
+            {{ item.units_available }} Cases
+          </p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            {{ bottlesAvailable(item) }} Bottles
+          </p>
+        </div>
       </div>
     </div>
   </div>
 </template>
+
 <script setup lang="ts">
 import { ref, computed, watch, toRef } from 'vue'
 import DropdownMenu from '../common/DropdownMenu.vue'
@@ -60,13 +74,14 @@ import VueApexCharts from 'vue3-apexcharts'
 
 // ---------------- Props ----------------
 const props = defineProps<{ barName: string }>()
-const barNameRef = toRef(props, 'barName') // reactive ref to prop
+const barNameRef = toRef(props, 'barName')
 
 // ---------------- Interfaces ----------------
 interface StockItem {
   product: string
   units_available: number
   buying_price: string
+  units_per_case: number
 }
 
 // ---------------- State ----------------
@@ -86,6 +101,12 @@ const formatCurrency = (value: number | null | undefined): string => {
   }).format(value)
 }
 
+const bottlesAvailable = (item: StockItem) => {
+  const cases = Number(item.units_available) || 0
+  const unitsPerCase = Number(item.units_per_case) || 0
+  return cases * unitsPerCase
+}
+
 // ---------------- Fetch Data ----------------
 async function fetchWarehouseStock(bar: string) {
   try {
@@ -93,7 +114,7 @@ async function fetchWarehouseStock(bar: string) {
     const res = await fetch(`http://localhost:3000/api/bars/${bar.toLowerCase()}/stock`)
     if (!res.ok) throw new Error(`HTTP error ${res.status}`)
     warehouseStock.value = await res.json()
-    console.log('Fetching stock for', warehouseStock.value)
+    console.log('Warehouse stock:', warehouseStock.value)
   } catch (error) {
     console.error(`Failed to fetch stock for ${bar}`, error)
     warehouseStock.value = []
@@ -104,11 +125,9 @@ async function fetchWarehouseStock(bar: string) {
 watch(
   barNameRef,
   (newBarName) => {
-    if (newBarName) {
-      fetchWarehouseStock(newBarName)
-    }
+    if (newBarName) fetchWarehouseStock(newBarName)
   },
-  { immediate: true } // fetch immediately if barName is already set
+  { immediate: true }
 )
 
 // ---------------- Computed ----------------
@@ -119,6 +138,10 @@ const totalStockValue = computed(() => {
     return sum + cases * price
   }, 0)
 })
+
+const totalBottles = computed(() =>
+  warehouseStock.value.reduce((sum, item) => sum + bottlesAvailable(item), 0)
+)
 
 const warehouseStockPercentage = computed(() => {
   const totalUnits = warehouseStock.value.reduce((sum, item) => sum + item.units_available, 0)
@@ -153,8 +176,6 @@ const chartOptions = {
   labels: ['Stock'],
 }
 </script>
-
-
 
 <style scoped>
 .radial-bar-chart {
