@@ -48,69 +48,76 @@ router.post('/bars/:bar/sales', async (req, res) => {
   const barSlug = req.params.bar
   const { product_id, employee_id, quantity } = req.body
 
+  console.log('🟡 Incoming sale:', { barSlug, product_id, employee_id, quantity })
+
+  const conn = await db.getConnection()
+
   try {
-    if (!product_id || !employee_id || !quantity || quantity < 1)
-      return res.status(400).json({ error: 'Invalid sale data' })
+    await conn.beginTransaction()
 
-    // Get bar id from slug
-    const [[bar]] = await db.query(`SELECT id FROM bars WHERE name = ?`, [barSlug])
-    if (!bar) return res.status(404).json({ error: 'Bar not found' })
+    const [[bar]] = await conn.query(
+      `SELECT id FROM bars WHERE name = ?`,
+      [barSlug]
+    )
+    console.log('🟡 Bar:', bar)
 
-    // Get product info from DB (selling price + units per case)
-    const [[product]] = await db.query(
-      `SELECT selling_price, units_per_case FROM products WHERE id = ?`,
+    const [[product]] = await conn.query(
+      `SELECT selling_price FROM products WHERE id = ?`,
       [product_id]
     )
-    if (!product) return res.status(404).json({ error: 'Product not found' })
+    console.log('🟡 Product:', product)
 
-    // Get current stock for this bar & product
-    const [[stock]] = await db.query(
+    const [[stock]] = await conn.query(
+      `SELECT units_available
+       FROM bar_stock
+       WHERE bar_id = ? AND product_id = ?
+       FOR UPDATE`,
+      [bar.id, product_id]
+    )
+
+    console.log('🟡 Stock BEFORE:', stock)
+
+    if (quantity > stock.units_available) {
+      throw new Error(`Not enough stock (${stock.units_available})`)
+    }
+
+    await conn.query(
+      `UPDATE bar_stock
+       SET units_available = units_available - ?
+       WHERE bar_id = ? AND product_id = ?`,
+      [quantity, bar.id, product_id]
+    )
+
+    const [[updatedStock]] = await conn.query(
       `SELECT units_available FROM bar_stock WHERE bar_id = ? AND product_id = ?`,
       [bar.id, product_id]
     )
-    if (!stock) return res.status(404).json({ error: 'Product not in bar stock' })
 
-    const { units_available } = stock
-    const { units_per_case, selling_price } = product
-    const totalBottlesAvailable = units_available * units_per_case
+    console.log('🟢 Stock AFTER:', updatedStock)
 
-    // Check enough bottles
-    if (quantity > totalBottlesAvailable)
-      return res.status(400).json({ error: `Not enough stock. Only ${totalBottlesAvailable} bottles available.` })
+    const unit_price = Number(product.selling_price)
+    const total_price = unit_price * quantity
 
-    // Deduct bottles → update cases
-    const newUnitsAvailable = (totalBottlesAvailable - quantity) / units_per_case
-    await db.query(
-      `UPDATE bar_stock SET units_available = ? WHERE bar_id = ? AND product_id = ?`,
-      [newUnitsAvailable, bar.id, product_id]
-    )
-
-    // Insert sale record
-    const unit_price = Number(selling_price)
-    const total_price = quantity * unit_price
-    const [result] = await db.query(
-      `INSERT INTO sales (bar_id, product_id, employee_id, quantity, unit_price, total_price, sale_time)
+    const [result] = await conn.query(
+      `INSERT INTO sales
+       (bar_id, product_id, employee_id, quantity, unit_price, total_price, sale_time)
        VALUES (?, ?, ?, ?, ?, ?, NOW())`,
       [bar.id, product_id, employee_id, quantity, unit_price, total_price]
     )
 
-    // Return sale
-    const [[newSale]] = await db.query(
-      `SELECT e.name AS employee, p.name AS product, s.quantity, s.unit_price, s.total_price, s.sale_time
-       FROM sales s
-       JOIN employees e ON e.id = s.employee_id
-       JOIN products p ON p.id = s.product_id
-       WHERE s.id = ?`,
-      [result.insertId]
-    )
+    await conn.commit()
+    console.log('🟢 Transaction COMMITTED')
 
-    res.json(newSale)
+    res.json({ success: true, sale_id: result.insertId })
+
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Failed to record sale' })
+    await conn.rollback()
+    console.error('🔴 Sale failed:', err.message)
+    res.status(400).json({ error: err.message })
+  } finally {
+    conn.release()
   }
 })
-
 
   // GET BEST SELLING PRODUCTS
 router.get('/:bar/best-products', async (req, res) => {
@@ -142,20 +149,22 @@ router.get('/:bar/stock', async (req, res) => {
 
     const [rows] = await db.query(`
       SELECT
-        p.id            AS product_id,
-        p.name          AS product,
-        bs.units_available,
+        p.id                AS product_id,
+        p.name              AS product,
+        bs.units_available  AS bottles_available,
         p.buying_price,
         p.selling_price,
-        p.units_per_case          -- <-- add this
+        p.units_per_case
       FROM bar_stock bs
-             JOIN products p ON p.id = bs.product_id
+      JOIN products p ON p.id = bs.product_id
       WHERE bs.bar_id = ?
+      ORDER BY p.name
     `, [barId])
 
     res.json(rows)
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    console.error(err)
+    res.status(500).json({ message: 'Failed to fetch stock' })
   }
 })
 
