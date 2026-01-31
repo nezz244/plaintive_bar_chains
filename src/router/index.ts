@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import Dashboard from '@/components/bars/Dashboard.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -13,6 +14,12 @@ const router = createRouter({
       meta: {
         title: 'eCommerce Dashboard',
       },
+    },
+    {
+      path: '/bars/:bar',
+      name: 'BarDashboard',
+      component: Dashboard,
+      props: true
     },
     {
       path: '/calendar',
@@ -50,6 +57,20 @@ const router = createRouter({
       path: '/line-chart',
       name: 'Line Chart',
       component: () => import('../views/Chart/LineChart/LineChart.vue'),
+    },
+    {
+      path: '/bars/:bar',
+      name: 'BarDashboard',
+      component: () => import('@/components/bars/Dashboard.vue')
+    }
+,
+    {
+      path: '/', // <-- THIS is the route path
+      name: 'Dashboard',
+      component: () => import('../views/Dashboard.vue'),
+      meta: {
+        title: 'Bars Dashboard',
+      },
     },
     {
       path: '/bar-chart',

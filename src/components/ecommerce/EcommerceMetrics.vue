@@ -229,6 +229,12 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 
 function openBar(barName: string) {
-  router.push(`/bars/${barName.toLowerCase()}`)
+  router.push({
+    name: 'BarDashboard',
+    params: {
+      bar: barName.toLowerCase()
+    }
+  })
 }
+
 </script>

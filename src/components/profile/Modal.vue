@@ -1,14 +1,16 @@
 <template>
-  <div class="fixed inset-0 flex items-center justify-center overflow-y-auto modal z-99999">
+  <div class="fixed inset-0 flex items-center justify-center z-50">
     <div
-      class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"
-      aria-hidden="true"
+      class="fixed inset-0 bg-gray-400/50"
       @click="$emit('close')"
     ></div>
-    <slot name="body"></slot>
+
+    <div class="relative bg-white p-6 rounded-xl z-10">
+      <slot />
+    </div>
   </div>
 </template>
 
 <script setup>
-// No additional setup needed
+defineEmits(['close'])
 </script>
