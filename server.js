@@ -15,10 +15,10 @@ app.use(cors());
 app.use(express.json());
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/bars', barRoutes);
-app.use('/api', dashboardRoutes)
-app.use(salesRouter)
-app.use('/api', barsRoutes) // ✅ All routes in bars.routes.mjs are now prefixed with /api
-
+app.use('/api', dashboardRoutes);
+app.use(salesRouter);
+app.use('/api', barsRoutes); // ✅ All routes in bars.routes.mjs are now prefixed with /api
+app.use('/api/sales', barRoutes);
 
 // --- MySQL pool connection ---
 export const db = mysql.createPool({
@@ -30,6 +30,7 @@ export const db = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 });
+
 app.get('/api/products/performance', getProductPerformance)
 // --- GET /api/bars-sales ---
 app.get('/api/bars-sales', async (req, res) => {

@@ -1,21 +1,6 @@
 <template>
   <div class="space-y-6">
 
-    <!-- RANGE FILTER -->
-    <div class="flex gap-2">
-      <button
-        v-for="r in ranges"
-        :key="r"
-        @click="range = r"
-        class="px-3 py-1 rounded-lg text-sm font-medium transition"
-        :class="range === r
-          ? 'bg-indigo-600 text-white'
-          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'"
-      >
-        {{ r.toUpperCase() }}
-      </button>
-    </div>
-
     <!-- TABLE CARD -->
     <div
       class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-4"
@@ -47,14 +32,14 @@
             <td class="py-2 text-gray-500">{{ p.units_sold }}</td>
             <td class="py-2 font-medium">{{ formatCurrency(p.revenue) }}</td>
             <td class="py-2">
-              <span
-                class="text-sm font-medium"
-                :class="p.growth >= 0
-                  ? 'text-green-600'
-                  : 'text-red-600'"
-              >
-                {{ p.growth >= 0 ? '▲' : '▼' }} {{ Math.abs(p.growth) }}%
-              </span>
+                <span
+                  class="text-sm font-medium"
+                  :class="p.growth >= 0
+                    ? 'text-green-600'
+                    : 'text-red-600'"
+                >
+                  {{ p.growth >= 0 ? '▲' : '▼' }} {{ Math.abs(p.growth) }}%
+                </span>
             </td>
           </tr>
           </tbody>
@@ -92,42 +77,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { computed } from 'vue'
 import VueApexCharts from 'vue3-apexcharts'
 
-/* ---------------- STATE ---------------- */
-
-const ranges = ['daily', 'weekly', 'monthly']
-const range = ref('monthly')
-
-const rawProducts = ref<any[]>([])
-
-/* ---------------- FETCH ---------------- */
-
-async function fetchProducts() {
-  try {
-    const res = await fetch(
-      `http://localhost:3000/api/products/performance?range=${range.value}`
-    )
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`)
-    rawProducts.value = await res.json()
-    console.log('Fetched products:', rawProducts.value)
-  } catch (err) {
-    console.error('Failed to fetch products', err)
-    rawProducts.value = []
-  }
-}
-
-watch(range, fetchProducts, { immediate: true })
+/* ---------------- PROPS ---------------- */
+const props = defineProps<{
+  products: Array<{
+    product: string
+    total_sold?: number | string
+    total_revenue?: number | string
+    current_sold?: number | string
+    current_revenue?: number | string
+    previous_sold?: number | string
+    previous_revenue?: number | string
+  }>
+}>()
 
 /* ---------------- NORMALIZE DATA ---------------- */
-
 const sortedProducts = computed(() => {
-  return rawProducts.value
+  return props.products
     .map(p => {
-      const current = Number(p.current_sold ?? p.total_sold) || 0
+      const current = Number(p.current_sold ?? p.total_sold ?? 0)
       const previous = Number(p.previous_sold ?? 0)
-      const revenue = Number(p.current_revenue ?? p.total_revenue) || 0
+      const revenue = Number(p.current_revenue ?? p.total_revenue ?? 0)
 
       const growth =
         previous === 0
@@ -145,7 +117,6 @@ const sortedProducts = computed(() => {
 })
 
 /* ---------------- BAR CHART ---------------- */
-
 const barSeries = computed(() => [
   { name: 'Units Sold', data: sortedProducts.value.map(p => p.units_sold) },
 ])
@@ -159,7 +130,6 @@ const barOptions = computed(() => ({
 }))
 
 /* ---------------- PIE CHART ---------------- */
-
 const totalUnits = computed(() =>
   sortedProducts.value.reduce((s, p) => s + p.units_sold, 0)
 )
@@ -176,7 +146,6 @@ const pieOptions = computed(() => ({
 }))
 
 /* ---------------- HELPERS ---------------- */
-
 function rankLabel(i: number) {
   if (i === 0) return '🥇 #1'
   if (i === 1) return '🥈 #2'

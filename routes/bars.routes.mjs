@@ -119,7 +119,7 @@ router.post('/bars/:bar/sales', async (req, res) => {
   }
 })
 
-  // GET BEST SELLING PRODUCTS
+// GET BEST SELLING PRODUCTS
 router.get('/:bar/best-products', async (req, res) => {
   try {
     const barId = await getBarId(req.params.bar);
@@ -202,36 +202,19 @@ router.get('/:bar/sales', async (req, res) => {
 
 router.get('/:bar/employee-ranking', async (req, res) => {
   try {
-    const { month, year } = req.query
     const barId = await getBarId(req.params.bar)
 
-    let sql = `
+    // Only employees assigned to this bar
+    const [rows] = await db.query(`
       SELECT
         e.name,
-        SUM(s.total_price) AS total_sales
-      FROM sales s
-             JOIN employees e ON e.id = s.employee_id
-      WHERE s.bar_id = ?
-    `
-
-    const params = [barId]
-
-    if (month) {
-      sql += ` AND MONTH(s.sale_time) = ?`
-      params.push(Number(month))
-    }
-
-    if (year) {
-      sql += ` AND YEAR(s.sale_time) = ?`
-      params.push(Number(year))
-    }
-
-    sql += `
+        COALESCE(SUM(s.total_price), 0) AS total_sales
+      FROM employees e
+             LEFT JOIN sales s ON s.employee_id = e.id AND s.bar_id = ?
+      WHERE e.bar_id = ?  -- filter employees by bar
       GROUP BY e.id
       ORDER BY total_sales DESC
-    `
-
-    const [rows] = await db.query(sql, params)
+    `, [barId, barId])
 
     res.json(rows)
   } catch (err) {
@@ -328,22 +311,30 @@ function toMySQLDate(d) {
 }
 
 // GET /api/products/performance?range=daily|weekly|monthly
+// Endpoint: Best Selling Products
 export async function getProductPerformance(req, res) {
   try {
+    const barSlug = req.params.bar
+    if (!barSlug) return res.status(400).json({ error: 'Bar slug is required' })
+
     const range = req.query.range || 'monthly'
     const now = new Date()
+
+    const barId = await getBarId(barSlug)
+
     let startCurrent, endCurrent, startPrev, endPrev
 
+    // ---------------- RANGES ----------------
     if (range === 'daily') {
       const today = new Date(now)
       const yesterday = new Date(now)
       yesterday.setDate(yesterday.getDate() - 1)
 
       startCurrent = toMySQLDate(new Date(today.setHours(0,0,0,0)))
-      endCurrent = toMySQLDate(new Date(today.setHours(23,59,59,999)))
+      endCurrent   = toMySQLDate(new Date(today.setHours(23,59,59,999)))
 
       startPrev = toMySQLDate(new Date(yesterday.setHours(0,0,0,0)))
-      endPrev = toMySQLDate(new Date(yesterday.setHours(23,59,59,999)))
+      endPrev   = toMySQLDate(new Date(yesterday.setHours(23,59,59,999)))
 
     } else if (range === 'weekly') {
       const firstDayOfWeek = new Date(now)
@@ -357,7 +348,7 @@ export async function getProductPerformance(req, res) {
       lastWeekEnd.setDate(lastWeekEnd.getDate() + 6)
 
       startPrev = toMySQLDate(new Date(lastWeekStart.setHours(0,0,0,0)))
-      endPrev = toMySQLDate(new Date(lastWeekEnd.setHours(23,59,59,999)))
+      endPrev   = toMySQLDate(new Date(lastWeekEnd.setHours(23,59,59,999)))
 
     } else { // monthly
       const startCurr = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -367,36 +358,36 @@ export async function getProductPerformance(req, res) {
       const endPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23,59,59)
 
       startCurrent = toMySQLDate(startCurr)
-      endCurrent = toMySQLDate(endCurr)
-      startPrev = toMySQLDate(startPrevMonth)
-      endPrev = toMySQLDate(endPrevMonth)
+      endCurrent   = toMySQLDate(endCurr)
+      startPrev    = toMySQLDate(startPrevMonth)
+      endPrev      = toMySQLDate(endPrevMonth)
     }
 
-    // CURRENT PERIOD SALES
+    // ---------------- CURRENT PERIOD ----------------
     const [currentRows] = await db.query(
       `SELECT p.name AS product,
               SUM(s.quantity) AS current_sold,
               SUM(s.total_price) AS current_revenue
        FROM sales s
        JOIN products p ON s.product_id = p.id
-       WHERE s.sale_time BETWEEN ? AND ?
+       WHERE s.sale_time BETWEEN ? AND ? AND s.bar_id = ?
        GROUP BY s.product_id`,
-      [startCurrent, endCurrent]
+      [startCurrent, endCurrent, barId]
     )
 
-    // PREVIOUS PERIOD SALES
+    // ---------------- PREVIOUS PERIOD ----------------
     const [prevRows] = await db.query(
       `SELECT p.name AS product,
               SUM(s.quantity) AS previous_sold,
               SUM(s.total_price) AS previous_revenue
        FROM sales s
        JOIN products p ON s.product_id = p.id
-       WHERE s.sale_time BETWEEN ? AND ?
+       WHERE s.sale_time BETWEEN ? AND ? AND s.bar_id = ?
        GROUP BY s.product_id`,
-      [startPrev, endPrev]
+      [startPrev, endPrev, barId]
     )
 
-    // MERGE CURRENT + PREVIOUS
+    // ---------------- MERGE DATA ----------------
     const result = (currentRows || []).map(curr => {
       const prev = (prevRows || []).find(p => p.product === curr.product) || {}
       return {
@@ -412,8 +403,7 @@ export async function getProductPerformance(req, res) {
 
   } catch (err) {
     console.error(err)
-    res.status(500).json({ error: 'Internal Server Error' })
+    res.status(500).json({ error: err.message || 'Internal Server Error' })
   }
 }
-
 export default router;

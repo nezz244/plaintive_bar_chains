@@ -1,17 +1,16 @@
 <template>
   <div
-    v-bind="$attrs"
     class="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-4 pt-4
            dark:border-gray-800 dark:bg-white/[0.03] sm:px-6"
   >
     <!-- Header -->
-    <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div class="mb-4 flex justify-between">
       <div>
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">
           Employee Ranking
         </h3>
         <p class="text-theme-xs text-gray-500 dark:text-gray-400">
-          Top performing employees
+          Top performing: {{ topEmployeeName }}
         </p>
       </div>
     </div>
@@ -72,6 +71,12 @@ const topEmployees = computed(() => {
     .slice(0, 5)
 })
 
+// ---------------- Top employee name ----------------
+const topEmployeeName = computed(() => {
+  if (topEmployees.value.length === 0) return 'N/A'
+  return topEmployees.value[0].name
+})
+
 // ---------------- Apex Series ----------------
 const chartSeries = computed(() => [
   {
@@ -91,29 +96,17 @@ const chartOptions = computed(() => ({
     curve: 'smooth',
     width: 3,
   },
-  dataLabels: {
-    enabled: false,
-  },
-  markers: {
-    size: 5,
-  },
+  dataLabels: { enabled: false },
+  markers: { size: 5 },
   xaxis: {
     categories: topEmployees.value.map(e => e.name),
-    labels: {
-      style: {
-        fontSize: '12px',
-      },
-    },
+    labels: { style: { fontSize: '12px' } },
   },
   yaxis: {
-    labels: {
-      formatter: (val: number) => `$${val.toFixed(0)}`,
-    },
+    labels: { formatter: (val: number) => `$${val.toFixed(0)}` },
   },
   tooltip: {
-    y: {
-      formatter: (val: number) => `$${val.toFixed(2)}`,
-    },
+    y: { formatter: (val: number) => `$${val.toFixed(2)}` },
   },
   colors: ['#4f46e5'],
 }))

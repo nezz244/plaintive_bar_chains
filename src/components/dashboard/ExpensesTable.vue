@@ -1,33 +1,38 @@
 <template>
   <div
-    class="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4
-           dark:border-gray-800 dark:bg-white/[0.03] sm:px-6"
+    class="overflow-hidden rounded-2xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-800 dark:bg-white/[0.03]"
   >
     <!-- Header + Add Expense -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
       <div class="flex flex-col sm:flex-row sm:items-center gap-4">
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Expenses</h3>
 
-        <!-- Filters -->
-        <div class="flex items-center gap-2">
-          <select v-model="selectedMonth" class="input-select">
+        <!-- Modern Filters -->
+        <div class="flex items-center gap-3">
+          <select
+            v-model="selectedMonth"
+            class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:focus:ring-brand-400 transition-colors"
+          >
             <option value="all">All Months</option>
             <option v-for="(m, i) in months" :key="i" :value="i+1">{{ m }}</option>
           </select>
 
-          <select v-model="selectedYear" class="input-select">
+          <select
+            v-model="selectedYear"
+            class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:focus:ring-brand-400 transition-colors"
+          >
             <option value="all">All Years</option>
             <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
           </select>
         </div>
 
         <!-- Expense total + trend -->
-        <div class="ml-4 flex flex-col sm:flex-row sm:items-center gap-2">
-          <p class="text-gray-700 dark:text-gray-300 font-medium text-theme-sm">
+        <div class="ml-0 sm:ml-6 flex flex-col sm:flex-row sm:items-center gap-3">
+          <p class="text-gray-700 dark:text-gray-300 font-medium text-sm">
             Total: <strong>{{ formatCurrency(totalExpenses) }}</strong>
           </p>
           <p
-            class="text-theme-xs flex items-center gap-1"
+            class="text-sm flex items-center gap-1 font-medium"
             :class="totalGrowth >= 0 ? 'text-success-600 dark:text-success-500' : 'text-error-600 dark:text-error-500'"
           >
             <span>{{ totalGrowth >= 0 ? '▲' : '▼' }}</span>
@@ -36,11 +41,21 @@
         </div>
       </div>
 
+      <!-- Modern Add Expense Button -->
       <button
         @click="open = true"
-        class="inline-flex items-center rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium
-               text-white hover:bg-brand-600 dark:bg-brand-600 dark:hover:bg-brand-700 transition-colors"
+        class="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white shadow hover:bg-brand-600 dark:bg-brand-600 dark:hover:bg-brand-700 transition-colors"
       >
+        <svg
+          class="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path>
+        </svg>
         Add Expense
       </button>
     </div>
@@ -53,59 +68,29 @@
     />
 
     <!-- Table -->
-    <div class="max-w-full overflow-x-auto custom-scrollbar mt-2">
-      <table class="min-w-full">
+    <div class="max-w-full overflow-x-auto custom-scrollbar mt-3">
+      <table class="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
         <thead>
-        <tr class="border-t border-gray-100 dark:border-gray-800">
-          <th class="py-3 text-left">
-            <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Category</p>
-          </th>
-          <th class="py-3 text-left">
-            <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Amount</p>
-          </th>
-          <th class="py-3 text-left">
-            <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Date</p>
-          </th>
-          <th class="py-3 text-left">
-            <p class="font-medium text-gray-500 text-theme-xs dark:text-gray-400">Trend</p>
-          </th>
+        <tr class="bg-gray-50 dark:bg-gray-900">
+          <th class="py-3 px-3 text-left text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Category</th>
+          <th class="py-3 px-3 text-left text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Amount</th>
+          <th class="py-3 px-3 text-left text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Date</th>
+          <th class="py-3 px-3 text-left text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Trend</th>
         </tr>
         </thead>
 
-        <tbody>
-        <tr
-          v-for="expense in filteredExpenses"
-          :key="expense.id"
-          class="border-t border-gray-100 dark:border-gray-800"
-        >
-          <!-- Category badge -->
-          <td class="py-3 whitespace-nowrap">
-              <span
-                :class="categoryClass(expense.category)"
-                class="px-2 py-0.5 rounded-full text-theme-xs font-medium"
-              >
+        <tbody class="bg-white divide-y divide-gray-100 dark:bg-gray-800 dark:divide-gray-700">
+        <tr v-for="expense in filteredExpenses" :key="expense.id" class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <td class="py-3 px-3 whitespace-nowrap">
+              <span :class="categoryClass(expense.category)" class="px-3 py-1 rounded-full text-xs font-medium">
                 {{ expense.category }}
               </span>
           </td>
-
-          <!-- Amount -->
-          <td class="py-3 whitespace-nowrap">
-            <p class="text-gray-500 text-theme-sm dark:text-gray-400">
-              {{ formatCurrency(expense.amount) }}
-            </p>
-          </td>
-
-          <!-- Date -->
-          <td class="py-3 whitespace-nowrap">
-            <p class="text-gray-500 text-theme-sm dark:text-gray-400">
-              {{ formatDate(expense.expense_date) }}
-            </p>
-          </td>
-
-          <!-- Trend vs previous month -->
-          <td class="py-3 whitespace-nowrap">
+          <td class="py-3 px-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{{ formatCurrency(expense.amount) }}</td>
+          <td class="py-3 px-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{{ formatDate(expense.expense_date) }}</td>
+          <td class="py-3 px-3 whitespace-nowrap">
               <span
-                class="flex items-center gap-1 text-theme-xs font-medium"
+                class="flex items-center gap-1 text-xs font-medium"
                 :class="getTrendClass(expense)"
                 :title="trendTooltip(expense)"
               >
@@ -118,6 +103,7 @@
     </div>
   </div>
 </template>
+
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
