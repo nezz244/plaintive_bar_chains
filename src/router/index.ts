@@ -1,172 +1,102 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Dashboard from '@/components/bars/Dashboard.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  scrollBehavior(to, from, savedPosition) {
+  scrollBehavior(_to, _from, savedPosition) {
     return savedPosition || { left: 0, top: 0 }
   },
   routes: [
     {
-      path: '/',
-      name: 'Ecommerce',
-      component: () => import('../views/Ecommerce.vue'),
-      meta: {
-        title: 'eCommerce Dashboard',
-      },
-    },
-    {
-      path: '/bars/:bar',
-      name: 'BarDashboard',
-      component: Dashboard,
-      props: true
-    },
-    {
-      path: '/calendar',
-      name: 'Calendar',
-      component: () => import('../views/Others/Calendar.vue'),
-      meta: {
-        title: 'Calendar',
-      },
-    },
-    {
-      path: '/profile',
-      name: 'Profile',
-      component: () => import('../views/Others/UserProfile.vue'),
-      meta: {
-        title: 'Profile',
-      },
-    },
-    {
-      path: '/form-elements',
-      name: 'Form Elements',
-      component: () => import('../views/Forms/FormElements.vue'),
-      meta: {
-        title: 'Form Elements',
-      },
-    },
-    {
-      path: '/basic-tables',
-      name: 'Basic Tables',
-      component: () => import('../views/Tables/BasicTables.vue'),
-      meta: {
-        title: 'Basic Tables',
-      },
-    },
-    {
-      path: '/line-chart',
-      name: 'Line Chart',
-      component: () => import('../views/Chart/LineChart/LineChart.vue'),
-    },
-    {
-      path: '/bars/:bar',
-      name: 'BarDashboard',
-      component: () => import('@/components/bars/Dashboard.vue')
-    }
-,
-    {
-      path: '/', // <-- THIS is the route path
-      name: 'Dashboard',
-      component: () => import('../views/Dashboard.vue'),
-      meta: {
-        title: 'Bars Dashboard',
-      },
-    },
-    {
-      path: '/bar-chart',
-      name: 'Bar Chart',
-      component: () => import('../views/Chart/BarChart/BarChart.vue'),
-    },
-    {
-      path: '/alerts',
-      name: 'Alerts',
-      component: () => import('../views/UiElements/Alerts.vue'),
-      meta: {
-        title: 'Alerts',
-      },
-    },
-    {
-      path: '/avatars',
-      name: 'Avatars',
-      component: () => import('../views/UiElements/Avatars.vue'),
-      meta: {
-        title: 'Avatars',
-      },
-    },
-    {
-      path: '/badge',
-      name: 'Badge',
-      component: () => import('../views/UiElements/Badges.vue'),
-      meta: {
-        title: 'Badge',
-      },
-    },
-
-    {
-      path: '/buttons',
-      name: 'Buttons',
-      component: () => import('../views/UiElements/Buttons.vue'),
-      meta: {
-        title: 'Buttons',
-      },
-    },
-
-    {
-      path: '/images',
-      name: 'Images',
-      component: () => import('../views/UiElements/Images.vue'),
-      meta: {
-        title: 'Images',
-      },
-    },
-    {
-      path: '/videos',
-      name: 'Videos',
-      component: () => import('../views/UiElements/Videos.vue'),
-      meta: {
-        title: 'Videos',
-      },
-    },
-    {
-      path: '/blank',
-      name: 'Blank',
-      component: () => import('../views/Pages/BlankPage.vue'),
-      meta: {
-        title: 'Blank',
-      },
-    },
-
-    {
-      path: '/error-404',
-      name: '404 Error',
-      component: () => import('../views/Errors/FourZeroFour.vue'),
-      meta: {
-        title: '404 Error',
-      },
-    },
-
-    {
       path: '/signin',
       name: 'Signin',
       component: () => import('../views/Auth/Signin.vue'),
-      meta: {
-        title: 'Signin',
-      },
+      meta: { title: 'Sign In', guest: true },
     },
     {
       path: '/signup',
       name: 'Signup',
-      component: () => import('../views/Auth/Signup.vue'),
-      meta: {
-        title: 'Signup',
-      },
+      component: () => import('../views/Auth/Onboarding.vue'),
+      meta: { title: 'Get Started', guest: true },
+    },
+    {
+      path: '/',
+      name: 'Overview',
+      component: () => import('../views/admin/Overview.vue'),
+      meta: { title: 'Dashboard', requiresAuth: true },
+    },
+    {
+      path: '/admin/branches',
+      name: 'Branches',
+      component: () => import('../views/admin/Branches.vue'),
+      meta: { title: 'Branches', requiresAuth: true },
+    },
+    {
+      path: '/admin/tables',
+      name: 'Tables',
+      component: () => import('../views/admin/Tables.vue'),
+      meta: { title: 'Floor Plan', requiresAuth: true },
+    },
+    {
+      path: '/admin/employees',
+      name: 'Employees',
+      component: () => import('../views/admin/Employees.vue'),
+      meta: { title: 'Team & Access', requiresAuth: true },
+    },
+    {
+      path: '/admin/products',
+      name: 'Products',
+      component: () => import('../views/admin/Products.vue'),
+      meta: { title: 'Products', requiresAuth: true },
+    },
+    {
+      path: '/admin/shifts',
+      name: 'Shifts',
+      component: () => import('../views/admin/Shifts.vue'),
+      meta: { title: 'Shifts', requiresAuth: true },
+    },
+    {
+      path: '/admin/settings',
+      name: 'Settings',
+      component: () => import('../views/admin/Settings.vue'),
+      meta: { title: 'Settings', requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/pos/:branchId',
+      name: 'POSTerminal',
+      component: () => import('../views/pos/Terminal.vue'),
+      meta: { title: 'POS', requiresAuth: true },
+    },
+    {
+      path: '/kitchen/:branchId',
+      name: 'KitchenDisplay',
+      component: () => import('../views/kitchen/Display.vue'),
+      meta: { title: 'Kitchen', requiresAuth: true },
+    },
+    {
+      path: '/error-404',
+      name: '404 Error',
+      component: () => import('../views/Errors/FourZeroFour.vue'),
+      meta: { title: '404 Error' },
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/error-404',
     },
   ],
 })
 
-export default router
+router.beforeEach(async (to, _from, next) => {
+  document.title = `${to.meta.title || 'VenuePOS'} | VenuePOS`
+  const auth = useAuthStore()
 
-router.beforeEach((to, from, next) => {
-  document.title = `Vue.js ${to.meta.title} | TailAdmin - Vue.js Tailwind CSS Dashboard Template`
+  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+    if (auth.token && !auth.user) await auth.init()
+    if (!auth.isAuthenticated) return next({ name: 'Signin', query: { redirect: to.fullPath } })
+  }
+  if (to.meta.guest && auth.isAuthenticated) return next({ name: 'Overview' })
+  if (to.meta.requiresAdmin && !auth.isOwnerOrAdmin) return next({ name: 'Overview' })
   next()
 })
+
+export default router

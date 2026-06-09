@@ -1,227 +1,281 @@
-# TailAdmin Vue - Free Vue.js Tailwind CSS Admin Dashboard Template
+# VenuePOS
 
-TailAdmin Vue is a free, open-source admin dashboard template **built on Vue.js**, popular and progressive JavaScript
-framework, and **Tailwind CSS**. This **powerful combination** provides developers with an extensive library of
-essential components, elements, and pages to launch a comprehensive and data-centric back-end, dashboard, or admin panel
-solution for any Vue.js based web projects.
+A professional, web-based point-of-sale system for **bars, clubs, and restaurants**. Manage multiple venues from one company account — onboard staff, run checkout terminals, track shifts, send orders to the kitchen, and accept card payments via Yoco.
 
-![TailAdmin Vue.js Dashboard Preview](./banner.png)
+Built with Vue 3 and Express, designed for operators who need a modern back office and a fast, touch-friendly POS without installing desktop software.
 
-With TailAdmin Vue, you can leverage **Vue.js 3** features such as declarative rendering, component-based architecture,
-Vue Router for routing, and Pinia for state management. It also utilizes the power of Tailwind CSS for rapid UI
-development with its low-level utility classes and responsive design capabilities.
-
-## Overview
-
-TailAdmin provides essential UI components and layouts for building feature-rich, data-driven admin dashboards and control panels. It's built on:
-
-- Vue 3.x (Vite)
-- Tailwind CSS 4.x
-- TypeScript
-
-### Quick Links
-
-- [✨ Visit Website](https://tailadmin.com)
-- [📄 Documentation](https://tailadmin.com/docs)
-- [⬇️ Download](https://tailadmin.com/download)
-- [🖌️ Figma Design File (Community Edition)](https://www.figma.com/community/file/1463141366275764364)
-- [⚡ Get PRO Version](https://tailadmin.com/pricing)
-
-### Demos
-
-- [Free Version](https://free-vue-demo.tailadmin.com/)
-- [Pro Version](https://vue-demo.tailadmin.com)
-
-### Other Versions
-
-- [HTML Version](https://github.com/TailAdmin/tailadmin-free-tailwind-dashboard-template)
-- [Next.js Version](https://github.com/TailAdmin/free-nextjs-admin-dashboard)
-- [React Version](https://github.com/TailAdmin/free-react-tailwind-admin-dashboard)
-- [Angular Version](https://github.com/TailAdmin/free-angular-tailwind-dashboard)
-
-## Installation
-
-### Prerequisites
-
-To get started with TailAdmin, ensure you have the following prerequisites installed and set up:
-
-- Node.js 18.x or later (recommended to use Node.js 20.x or later)
-- Recommended IDE Setup: [VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-#### Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-### Cloning the Repository
-
-Clone the repository using the following command:
-
-```bash
-git clone https://github.com/TailAdmin/vue-tailwind-admin-dashboard.git
-```
-
-> Windows Users: place the repository near the root of your drive if you face issues while cloning.
-
-1. Install dependencies:
-
-   ```bash
-   npm install
-   # or
-   yarn install
-   ```
-
-2. Start the development server:
-
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   ```
-
-3. Production build:
-   ```bash
-   npm run build
-   # or
-   yarn build
-   ```
-
-## Feature Comparison
-
-### Free Version
-
-- 1 Unique Dashboard
-- 50+ Dashboard UI components
-- Basic Figma design files
-- Community support
-
-### Pro Version
-
-- 7 Unique Dashboards: Analytics, Ecommerce, Marketing, CRM, Stocks (more coming soon)
-- 500+ dashboard components and UI elements
-- Complete Figma design file
-- Email support
-
-To learn more about pro version features and pricing, visit our [pricing page](https://tailadmin.com/pricing).
-
-## Components
-
-TailAdmin is a pre-designed starting point for building a web-based dashboard using Vue.js and Tailwind CSS. The template includes:
-
-- Sophisticated and accessible sidebar
-- Data visualization components
-- Prebuilt profile management and 404 page
-- Tables and Charts(Line and Bar)
-- Authentication forms and input elements
-- Alerts, Dropdowns, Modals, Buttons and more
-- Can't forget Dark Mode 🕶️
-
-All components are built with Vue and styled using Tailwind CSS for easy customization.
+---
 
 ## Features
 
-**💎 High-quality, Premium Modern Design:**
-A thoughtfully designed dashboard template with a deep focus on UX/UI, already trusted and utilized by over 10K+ web apps worldwide.
+### Multi-tenant platform
+- **Company onboarding** — register your business and owner account in one flow
+- **Branches** — manage bars, restaurants, clubs, and lounges under one company
+- **Team & access** — create users with company roles and per-branch permissions
+- **Employee records** — staff codes and POS PINs for shift tracking
 
-**✨ Vue 3:**
-Get enhanced performance with the latest Vue version.
+### Point of sale
+- **Touch-friendly POS terminal** — category product grid, cart, multiple payment methods
+- **Shift management** — open/close shifts with opening cash, sales tracking, and variance reconciliation
+- **Table & tab management** — floor plan for dine-in, open bar tabs for walk-ins
+- **Receipt printing** — print-ready receipt after every completed sale
 
-**⚡ Vite Build System:**
-Enjoy quick development with Vite, ensuring fast code compilation.
+### Operations
+- **Kitchen Display System (KDS)** — live order queue with item-level status (pending → preparing → ready → served)
+- **Product catalog** — centralized menu with optional "send to kitchen" flag per item
+- **Dashboard** — revenue, orders, and branch performance at a glance
 
-**🔀 Vue Router:**
-Manage app navigation with ease using Vue Router for seamless transitions.
+### Payments
+- Cash, manual card, mobile money, and tab (pay later)
+- **Yoco card payments** — secure popup checkout for South African venues (ZAR)
 
-**💡 Reactive Utilities:**
-Enhance component reactivity with @vueuse/core utilities.
+---
 
-**📊 Charting with ApexCharts:**
-Visualize data with ApexCharts for beautiful analytics.
+## Tech stack
 
-**🗺️ Vector Maps with JSVectorMap:**
-Easily integrate interactive vector maps with JSVectorMap.
+| Layer | Technology |
+|-------|------------|
+| Frontend | Vue 3, TypeScript, Pinia, Vue Router, Tailwind CSS 4, Vite |
+| Backend | Express 5, JWT, bcrypt |
+| Database | MySQL 8 |
+| Payments | [Yoco](https://www.yoco.com/za/) Checkout API |
+| Dev infra | Docker Compose (MySQL) |
 
-**🖌️ UI with Tailwind CSS:**
-Frontend UI built on the powerful and versatile Tailwind CSS framework.
+---
 
-**💫 TypeScript Support:**
-Write safer, maintainable code with TailAdmin Vue's TypeScript Support.
+## Getting started
 
-**✅ Linting and Formatting:**
-Maintain a clean codebase with built-in linting and formatting.
+### Prerequisites
 
-**🗃️ State Management with Pinia:**
-Handle your app's state with Pinia for clean, organized code.
+- [Node.js](https://nodejs.org/) 20 or later
+- [Docker](https://www.docker.com/) (OrbStack, Docker Desktop, or equivalent)
+- npm
 
-## Update Logs
+### Installation
 
-### Version 2.0.2 - [December 30, 2025]
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd plaintive_bar_chains
 
-#### Enhancements
+# Install dependencies
+npm install
 
-- Added date range picker to Statistics Chart component.
-- Improved responsive design for chart header.
+# Configure environment
+cp .env.example .env
+```
 
-### Version 2.0.1 - [February 27, 2025]
+Edit `.env` and set at minimum:
 
-#### Update Overview
+```env
+JWT_SECRET=your-long-random-secret
+DB_PASSWORD=venuepos
+```
 
-- Upgraded to Tailwind CSS v4 for better performance and efficiency.
-- Updated class usage to match the latest syntax and features.
-- Replaced deprecated class and optimized styles.
+### Start the database
 
-#### Next Steps
+```bash
+npm run db:setup
+```
 
-- Run npm install or yarn install to update dependencies.
-- Check for any style changes or compatibility issues.
-- Refer to the Tailwind CSS v4 [Migration Guide](https://tailwindcss.com/docs/upgrade-guide) on this release. if needed.
-- This update keeps the project up to date with the latest Tailwind improvements. 🚀
+This starts MySQL in Docker and applies `database/schema.sql` automatically on first run.
 
-### Version 2.0.0 - [February 2025]
+Verify it's running:
 
-Major update with Vue 3 migration and comprehensive redesign.
+```bash
+docker compose ps
+curl http://localhost:3001/api/health   # after starting the server
+```
 
-#### Major Improvements
+### Run the application
 
-- Complete migration to Vue 3 Composition API
-- Updated to Vue Router 4
-- Enhanced user interface with new Vue 3 components
-- Improved performance with Vue 3's virtual DOM
-- Better accessibility and responsive design
+```bash
+# Start API (port 3001) + frontend (port 5173) together
+npm run dev:all
+```
 
-#### New Features
+Or run them separately in two terminals:
 
-- Redesigned dashboards (Ecommerce, Analytics, Marketing, CRM)
-- Collapsible sidebar with Vue 3 integration
-- Enhanced navigation with Vue Router 4
-- Real-time chat functionality
-- Full-featured calendar with drag-and-drop
-- Advanced table components
-- Updated data visualization with ApexCharts
+```bash
+npm run server   # API only
+npm run dev      # Frontend only
+```
 
-#### Breaking Changes
+Open **http://localhost:5173/signup** to create your first company account.
 
-- Requires Vue 3 and Vue Router 4
-- Chart components migrated to ApexCharts for Vue 3
-- Modified routing implementation
-- Updated component APIs for Vue 3 compatibility
+---
 
-[Read more](https://tailadmin.com/docs/update-logs/vue) on this release.
+## First-time setup walkthrough
 
-### Version 1.0.2 - [June 19, 2024]
+After signing up:
 
-#### Issues
+1. **Branches** — add your venues (`/admin/branches`)
+2. **Floor plan** — configure tables and tabs (`/admin/tables`)
+3. **Products** — build your menu; tick "Send to kitchen" for food items (`/admin/products`)
+4. **Team** — add staff and grant system access (`/admin/employees`)
+5. **Settings** — set currency, tax rate, receipt footer, and Yoco keys (`/admin/settings`)
+6. **POS** — open a shift, then start selling (`/pos/:branchId` from the sidebar)
+7. **Kitchen** — display active orders on a tablet (`/kitchen/:branchId`)
 
-- Fix Mobile Menu Hamburger Icon issue.
+---
 
-### Version 1.0.1 - [Feb 08, 2024]
+## Application routes
 
-#### Enhancements
+| Route | Description |
+|-------|-------------|
+| `/signup` | Company onboarding |
+| `/signin` | Sign in |
+| `/` | Company dashboard |
+| `/admin/branches` | Manage branches |
+| `/admin/tables` | Floor plan & open tabs |
+| `/admin/products` | Product catalog |
+| `/admin/employees` | Team & access control |
+| `/admin/shifts` | Shift history & cash variance |
+| `/admin/settings` | Company profile, tax, Yoco |
+| `/pos/:branchId` | POS terminal |
+| `/kitchen/:branchId` | Kitchen display |
 
-- Make it functional [Multiselect Dropdown/Form Elements].
-- Delete SelectGroup Components then create a SelectGroup folder and create two files under this
-  folder SelectGroupOne.vue SelectGroupTwo.vue [Select Group/Form Elements & Layout].
-- Update style.css file.
+---
 
-### Version 1.0.0 - Initial Release - [Jan 22, 2024]
+## Yoco payment setup
 
-- Initial release of TailAdmin Vue.
+VenuePOS uses [Yoco](https://www.yoco.com/za/) for card payments — ideal for South African venues.
+
+1. Create a Yoco account and open [Yoco Portal → Integration](https://portal.yoco.com/online/settings/integration)
+2. Copy your **public key** (`pk_test_…` or `pk_live_…`) and **secret key** (`sk_test_…` or `sk_live_…`)
+3. In VenuePOS, go to **Settings → Yoco Payments** and paste both keys
+4. Set your company **currency to ZAR** in Settings
+5. At the POS, select **Card (Yoco)** — the Yoco payment popup will open for the customer
+
+Use test keys during development; switch to live keys in production.
+
+---
+
+## Environment variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | API server port | `3001` |
+| `JWT_SECRET` | Secret for signing auth tokens | — |
+| `JWT_EXPIRES_IN` | Token expiry | `7d` |
+| `DB_HOST` | MySQL host | `localhost` |
+| `DB_USER` | MySQL user | `root` |
+| `DB_PASSWORD` | MySQL password | `venuepos` |
+| `DB_NAME` | Database name | `venuepos` |
+
+Yoco keys can also be set globally in `.env`, but per-company configuration via the Settings UI is recommended for multi-tenant use.
+
+---
+
+## npm scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev:all` | Start frontend + API |
+| `npm run dev` | Frontend dev server (Vite) |
+| `npm run server` | API server (Express) |
+| `npm run db:up` | Start MySQL container |
+| `npm run db:down` | Stop MySQL container |
+| `npm run db:setup` | Start MySQL and wait for init |
+| `npm run build` | Production build |
+| `npm run lint` | Run ESLint |
+| `npm run type-check` | TypeScript check |
+
+---
+
+## Project structure
+
+```
+├── server.js                 # Express API entry
+├── db.js                     # MySQL connection pool
+├── routes/                   # REST API handlers
+├── middleware/               # JWT authentication
+├── lib/                      # Shared backend utilities
+├── database/
+│   ├── schema.sql            # Full database schema
+│   └── migrate-yoco.sql      # Migration helper
+├── docker-compose.yml        # MySQL service
+├── src/
+│   ├── views/                # Page components
+│   ├── components/           # Reusable UI
+│   ├── stores/               # Pinia stores
+│   ├── api/                  # HTTP client & API wrappers
+│   └── router/               # Vue Router config
+└── AGENTS.md                 # Setup guide for AI coding agents
+```
+
+---
+
+## API overview
+
+Base URL: `http://localhost:3001/api` (proxied as `/api` in dev)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/auth/register` | Onboard new company |
+| POST | `/auth/login` | Sign in |
+| GET | `/auth/me` | Current user + branches |
+| GET | `/companies/dashboard` | KPIs and branch stats |
+| GET/POST | `/branches` | List / create branches |
+| GET/POST | `/users/employees` | Staff management |
+| GET | `/pos/:branchId/context` | POS session (shift, tables, tabs) |
+| POST | `/pos/:branchId/orders` | Complete a sale |
+| GET/POST | `/tables/:branchId` | Table management |
+| POST | `/shifts/:branchId/open` | Open cash drawer shift |
+| GET | `/kitchen/:branchId/orders` | Kitchen order queue |
+| PUT | `/payments/config` | Configure Yoco keys |
+
+All protected routes require `Authorization: Bearer <token>`.
+
+---
+
+## Database management
+
+**Fresh install** — handled automatically by Docker on first start.
+
+**Reset database** (destroys all data):
+
+```bash
+docker compose down -v
+npm run db:setup
+```
+
+**Migrate existing database** (Stripe → Yoco columns):
+
+```bash
+docker exec -i venuepos-mysql mysql -uroot -pvenuepos venuepos < database/migrate-yoco.sql
+```
+
+---
+
+## Development notes
+
+- The frontend dev server proxies `/api` requests to Express on port **3001** (not 3000 — many other dev tools use 3000)
+- Auth tokens are stored in `localStorage` under the key `venuepos_token`
+- POS sales require an **open shift** before checkout (except tab/pay-later orders)
+- See [AGENTS.md](./AGENTS.md) for detailed guidance when using AI coding agents in this repo
+
+---
+
+## Troubleshooting
+
+**Database connection failed**
+- Ensure Docker is running: `docker compose ps`
+- Run `npm run db:setup` and wait ~15 seconds for MySQL to initialize
+
+**Cannot complete sale — shift required**
+- Open a shift from the POS terminal before processing sales
+
+**Yoco payment doesn't appear**
+- Configure Yoco keys in Settings
+- Set company currency to `ZAR`
+
+**Port already in use**
+- Stop any existing process on 3001 or 5173, or change `PORT` in `.env`
+- If registration returns **404**, another app may be bound to the API port — confirm `curl http://localhost:3001/api/health` returns VenuePOS JSON, not HTML from another project
+
+---
+
+## License
+
+Private — all rights reserved.

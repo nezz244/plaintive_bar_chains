@@ -13,14 +13,7 @@
       <!-- Footer -->
       <footer class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6 pt-0">
         <p class="text-sm text-center text-gray-500 dark:text-gray-400">
-          Designed and Developed by
-          <a
-          >
-            Tafadzwa Nesara
-
-          </a>
-          tnesara55@gmail.com
-
+          VenuePOS — Professional POS for bars, clubs & restaurants
         </p>
       </footer>
     </div>
