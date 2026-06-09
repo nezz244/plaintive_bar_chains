@@ -50,6 +50,24 @@ const router = createRouter({
       meta: { title: 'Products', requiresAuth: true },
     },
     {
+      path: '/admin/expenses',
+      name: 'Expenses',
+      component: () => import('../views/admin/Expenses.vue'),
+      meta: { title: 'Expenses', requiresAuth: true },
+    },
+    {
+      path: '/admin/reports',
+      name: 'Reports',
+      component: () => import('../views/admin/Reports.vue'),
+      meta: { title: 'Reports', requiresAuth: true },
+    },
+    {
+      path: '/admin/stock',
+      name: 'Stock',
+      component: () => import('../views/admin/Stock.vue'),
+      meta: { title: 'Stock', requiresAuth: true },
+    },
+    {
       path: '/admin/shifts',
       name: 'Shifts',
       component: () => import('../views/admin/Shifts.vue'),

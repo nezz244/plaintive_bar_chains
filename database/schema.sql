@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS companies (
   timezone VARCHAR(50) DEFAULT 'Africa/Harare',
   logo_url VARCHAR(500),
   tax_rate DECIMAL(5,2) DEFAULT 0,
+  warehouse_mode ENUM('central', 'per_branch') NOT NULL DEFAULT 'central',
+  stock_variance_threshold DECIMAL(5,2) NOT NULL DEFAULT 5.00,
   yoco_public_key VARCHAR(255),
   yoco_secret_key VARCHAR(255),
   yoco_webhook_secret VARCHAR(255),
@@ -153,6 +155,7 @@ CREATE TABLE IF NOT EXISTS products (
   selling_price DECIMAL(10,2) NOT NULL,
   units_per_case INT DEFAULT 1,
   send_to_kitchen BOOLEAN DEFAULT FALSE,
+  audit_on_shift_close BOOLEAN NOT NULL DEFAULT TRUE,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
@@ -172,10 +175,12 @@ CREATE TABLE IF NOT EXISTS branch_stock (
 CREATE TABLE IF NOT EXISTS warehouse_stock (
   id INT PRIMARY KEY AUTO_INCREMENT,
   company_id INT NOT NULL,
+  branch_id INT NULL,
   product_id INT NOT NULL,
   cases_available INT DEFAULT 0,
-  UNIQUE KEY uq_company_product (company_id, product_id),
+  UNIQUE KEY uq_warehouse_stock (company_id, branch_id, product_id),
   FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+  FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
@@ -195,6 +200,9 @@ CREATE TABLE IF NOT EXISTS shifts (
   mobile_sales DECIMAL(10,2) DEFAULT 0,
   total_sales DECIMAL(10,2) DEFAULT 0,
   variance DECIMAL(10,2),
+  stock_audit_status ENUM('pending', 'submitted', 'flagged', 'approved') NOT NULL DEFAULT 'pending',
+  stock_variance_total INT NOT NULL DEFAULT 0,
+  stock_audit_notes TEXT,
   status ENUM('open', 'closed') DEFAULT 'open',
   notes TEXT,
   FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE,
@@ -261,18 +269,56 @@ CREATE TABLE IF NOT EXISTS payments (
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
--- ─── Expenses ────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS expenses (
   id INT PRIMARY KEY AUTO_INCREMENT,
-  branch_id INT NOT NULL,
+  company_id INT NOT NULL,
+  branch_id INT NULL,
   category VARCHAR(100) NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
   description TEXT,
   expense_date DATE NOT NULL,
+  expense_type ENUM('fixed', 'variable', 'payroll') NOT NULL DEFAULT 'variable',
   recorded_by INT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
   FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE,
   FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS stock_movements (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  company_id INT NOT NULL,
+  branch_id INT NULL,
+  product_id INT NOT NULL,
+  movement_type ENUM('opening', 'sale', 'transfer_in', 'transfer_out', 'wastage', 'adjustment', 'shift_count') NOT NULL,
+  quantity INT NOT NULL,
+  reference_type VARCHAR(50),
+  reference_id INT,
+  shift_id INT NULL,
+  user_id INT NULL,
+  notes VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+  FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (shift_id) REFERENCES shifts(id) ON DELETE SET NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_stock_movements_branch (branch_id, created_at),
+  INDEX idx_stock_movements_shift (shift_id)
+);
+
+CREATE TABLE IF NOT EXISTS shift_stock_counts (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  shift_id INT NOT NULL,
+  product_id INT NOT NULL,
+  opening_qty INT NOT NULL DEFAULT 0,
+  sold_qty INT NOT NULL DEFAULT 0,
+  expected_qty INT NOT NULL DEFAULT 0,
+  counted_qty INT NULL,
+  variance INT NULL,
+  UNIQUE KEY uq_shift_product (shift_id, product_id),
+  FOREIGN KEY (shift_id) REFERENCES shifts(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
 -- ─── Audit log ───────────────────────────────────────────────────────────────────

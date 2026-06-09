@@ -79,6 +79,9 @@ Vite proxies `/api` → `http://localhost:3001` (see `vite.config.ts`). Frontend
 | `npm run db:up` | Start MySQL container |
 | `npm run db:down` | Stop MySQL container |
 | `npm run db:setup` | Start MySQL + wait for init |
+| `npm run db:seed` | Sample products/staff/tables for existing account |
+| `npm test` | Vitest unit + API integration tests |
+| `npm run test:watch` | Tests in watch mode |
 | `npm run build` | Production build (type-check + vite build) |
 | `npm run lint` | ESLint with auto-fix |
 | `npm run type-check` | `vue-tsc` |
@@ -96,6 +99,8 @@ Vite proxies `/api` → `http://localhost:3001` (see `vite.config.ts`). Frontend
 ├── database/
 │   ├── schema.sql         # Full schema (used by Docker init)
 │   └── migrate-yoco.sql   # One-off migration for older DBs
+├── scripts/seed-sample.mjs # Idempotent demo data for an account
+├── tests/                 # Vitest unit + API tests
 ├── docker-compose.yml     # MySQL 8 service
 ├── src/
 │   ├── main.ts            # Vue bootstrap + Pinia
@@ -204,7 +209,7 @@ Core tables: `companies`, `branches`, `users`, `user_branch_access`, `employees`
 ### Scope
 
 - Minimize diffs; don't refactor unrelated TailAdmin leftovers
-- Don't add tests unless requested
+- Run `npm test` after backend or API changes
 - Don't create git commits unless the user asks
 
 ---

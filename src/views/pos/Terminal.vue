@@ -1,11 +1,10 @@
 <template>
   <div class="min-h-screen bg-gray-900 text-white flex flex-col">
-    <!-- Shift gate -->
     <div v-if="!context?.shift && !loading" class="flex-1 flex items-center justify-center p-6">
       <div class="text-center max-w-md">
         <p class="text-6xl mb-4">🔐</p>
         <h2 class="text-xl font-bold mb-2">Shift Required</h2>
-        <p class="text-gray-400 mb-6">Open a shift with your opening cash count to start processing sales.</p>
+        <p class="text-gray-400 mb-6">Enter your employee PIN and opening cash to start.</p>
         <button @click="showShiftOpen = true" class="px-6 py-3 bg-brand-500 rounded-xl font-medium hover:bg-brand-600">
           Open Shift
         </button>
@@ -18,10 +17,14 @@
           <router-link to="/" class="text-gray-400 hover:text-white text-sm">← Back</router-link>
           <div>
             <h1 class="font-semibold">{{ branchName }}</h1>
-            <p class="text-xs text-gray-400">Shift open · {{ context.shift?.employee_name }}</p>
+            <button @click="showSwitch = true" class="text-xs text-brand-400 hover:underline">
+              {{ context.shift?.employee_name }} · Switch staff
+            </button>
           </div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
+          <button @click="showOrders = !showOrders" class="px-3 py-1.5 text-xs bg-gray-700 rounded-lg">Orders</button>
+          <button @click="showTabPanel = !showTabPanel" class="px-3 py-1.5 text-xs bg-gray-700 rounded-lg">Tabs</button>
           <select v-model="orderType" class="px-2 py-1.5 text-xs bg-gray-900 border border-gray-700 rounded-lg">
             <option value="bar_tab">Bar Tab</option>
             <option value="dine_in">Dine In</option>
@@ -29,15 +32,51 @@
           </select>
           <select v-if="orderType === 'dine_in'" v-model="selectedTableId" class="px-2 py-1.5 text-xs bg-gray-900 border border-gray-700 rounded-lg">
             <option :value="null">Select table</option>
-            <option v-for="t in context.tables" :key="t.id" :value="t.id">Table {{ t.table_number }} ({{ t.status }})</option>
+            <option v-for="t in context.tables" :key="t.id" :value="t.id">Table {{ t.table_number }}</option>
           </select>
           <select v-model="selectedTabId" class="px-2 py-1.5 text-xs bg-gray-900 border border-gray-700 rounded-lg">
             <option :value="null">No tab</option>
-            <option v-for="t in context.tabs" :key="t.id" :value="t.id">{{ t.tab_name }}</option>
+            <option v-for="t in context.tabs" :key="t.id" :value="t.id">{{ t.tab_name }} (${{ Number(t.total_amount).toFixed(0) }})</option>
           </select>
-          <button @click="showShiftClose = true" class="px-3 py-1.5 text-xs bg-red-600/80 rounded-lg hover:bg-red-600">Close Shift</button>
+          <button @click="showShiftClose = true" class="px-3 py-1.5 text-xs bg-red-600/80 rounded-lg">Close Shift</button>
         </div>
       </header>
+
+      <!-- Tabs side panel -->
+      <div v-if="showTabPanel" class="bg-gray-850 border-b border-gray-700 px-4 py-3">
+        <div class="flex gap-2 overflow-x-auto">
+          <button
+            v-for="t in context.tabs"
+            :key="t.id"
+            @click="openSettle(t.id)"
+            class="flex-shrink-0 px-4 py-2 rounded-lg bg-gray-800 border border-gray-600 text-sm hover:border-brand-500"
+          >
+            <span class="font-medium">{{ t.tab_name }}</span>
+            <span class="text-brand-400 ml-2">${{ Number(t.total_amount).toFixed(2) }}</span>
+          </button>
+          <button @click="openNewTab" class="flex-shrink-0 px-4 py-2 rounded-lg border border-dashed border-gray-600 text-sm text-gray-400">+ New Tab</button>
+        </div>
+      </div>
+
+      <!-- Orders side panel -->
+      <div v-if="showOrders" class="bg-gray-800 border-b border-gray-700 max-h-48 overflow-y-auto">
+        <table class="w-full text-xs">
+          <thead><tr class="text-gray-500 border-b border-gray-700">
+            <th class="px-3 py-2 text-left">Order</th><th class="px-3 py-2">Status</th><th class="px-3 py-2 text-right">Total</th><th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="o in todayOrders" :key="o.id" class="border-b border-gray-700/50">
+              <td class="px-3 py-2">{{ o.order_number }}</td>
+              <td class="px-3 py-2 capitalize">{{ o.status }}</td>
+              <td class="px-3 py-2 text-right">${{ Number(o.total_amount).toFixed(2) }}</td>
+              <td class="px-3 py-2 text-right space-x-2">
+                <button v-if="o.status === 'open' || o.status === 'completed'" @click="openAction(o, 'void')" class="text-amber-400">Void</button>
+                <button v-if="o.status === 'completed' && o.payment_status === 'paid'" @click="openAction(o, 'refund')" class="text-red-400">Refund</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <div class="flex flex-1 overflow-hidden">
         <div class="flex-1 p-4 overflow-y-auto">
@@ -59,7 +98,6 @@
                 >
                   <p class="font-medium text-sm truncate">{{ product.name }}</p>
                   <p class="text-brand-400 font-bold mt-1">${{ Number(product.selling_price).toFixed(2) }}</p>
-                  <p v-if="product.send_to_kitchen" class="text-xs text-orange-400 mt-0.5">🍳 Kitchen</p>
                 </button>
               </div>
             </div>
@@ -83,12 +121,6 @@
             </div>
           </div>
           <div class="p-4 border-t border-gray-700 space-y-3">
-            <div class="flex justify-between text-sm text-gray-400">
-              <span>Subtotal</span><span>${{ cartTotal.toFixed(2) }}</span>
-            </div>
-            <div v-if="taxAmount > 0" class="flex justify-between text-sm text-gray-400">
-              <span>Tax ({{ context.taxRate }}%)</span><span>${{ taxAmount.toFixed(2) }}</span>
-            </div>
             <div class="flex justify-between text-lg font-bold">
               <span>Total</span><span class="text-brand-400">${{ grandTotal.toFixed(2) }}</span>
             </div>
@@ -99,38 +131,42 @@
               <option value="mobile">Mobile Money</option>
               <option value="tab">Add to Tab</option>
             </select>
-            <div v-if="paymentMethod === 'cash'" class="flex gap-2">
-              <input v-model.number="amountTendered" type="number" step="0.01" placeholder="Amount tendered" class="flex-1 px-3 py-2 text-sm bg-gray-900 border border-gray-700 rounded-lg" />
-              <span v-if="amountTendered >= grandTotal" class="text-green-400 text-sm self-center">
-                Change: ${{ (amountTendered - grandTotal).toFixed(2) }}
-              </span>
-            </div>
-            <button @click="checkout" :disabled="!cart.length || processing" class="w-full py-3 text-sm font-semibold bg-brand-500 rounded-xl hover:bg-brand-600 disabled:opacity-50">
-              {{ processing ? 'Processing...' : paymentMethod === 'tab' ? 'Send to Tab' : paymentMethod === 'yoco' ? 'Pay with Yoco' : 'Complete Sale' }}
+            <button @click="checkout" :disabled="!cart.length || processing" class="w-full py-3 text-sm font-semibold bg-brand-500 rounded-xl disabled:opacity-50">
+              {{ processing ? 'Processing...' : paymentMethod === 'tab' ? 'Send to Tab' : 'Complete Sale' }}
             </button>
-            <button v-if="cart.length" @click="cart = []" class="w-full py-2 text-sm text-gray-400">Clear</button>
           </div>
         </div>
       </div>
     </template>
 
-    <ShiftOpenModal :show="showShiftOpen" :branch-id="branchId" :employees="context?.employees || []" @close="showShiftOpen = false" @opened="onShiftOpened" />
+    <ShiftOpenModal :show="showShiftOpen" :branch-id="branchId" @close="showShiftOpen = false" @opened="onShiftOpened" />
     <ShiftCloseModal :show="showShiftClose" :branch-id="branchId" :shift="context?.shift || null" @close="showShiftClose = false" @closed="onShiftClosed" />
-    <YocoPaymentModal
-      :show="showYoco"
-      :amount="grandTotal"
+    <EmployeeSwitchModal :show="showSwitch" :branch-id="branchId" @close="showSwitch = false" @switched="onEmployeeSwitched" />
+    <TabSettleModal
+      :show="showSettle"
+      :branch-id="branchId"
+      :tab-id="settleTabId"
+      :yoco-enabled="context?.yocoEnabled || false"
       :public-key="context?.publicKey || ''"
-      :currency="context?.currency || 'ZAR'"
-      @close="showYoco = false"
-      @success="onYocoSuccess"
+      :currency="context?.currency || 'USD'"
+      @close="showSettle = false"
+      @settled="onTabSettled"
     />
+    <OrderActionModal
+      :show="!!actionOrder"
+      :branch-id="branchId"
+      :order="actionOrder"
+      :mode="actionMode"
+      @close="actionOrder = null"
+      @done="refreshOrders"
+    />
+    <YocoPaymentModal :show="showYoco" :amount="grandTotal" :public-key="context?.publicKey || ''" :currency="context?.currency || 'ZAR'" @close="showYoco = false" @success="onYocoSuccess" />
 
-    <!-- Receipt modal -->
     <div v-if="lastReceipt" class="fixed inset-0 z-999999 flex items-center justify-center bg-black/60">
       <div class="bg-white rounded-2xl p-4 max-w-sm w-full mx-4">
         <ReceiptPrint ref="receiptRef" :receipt="lastReceipt" :currency="currencySymbol" />
         <div class="flex gap-2 mt-4">
-          <button @click="printReceipt" class="flex-1 py-2.5 text-sm font-medium bg-brand-500 text-white rounded-lg">Print Receipt</button>
+          <button @click="printReceipt" class="flex-1 py-2.5 text-sm font-medium bg-brand-500 text-white rounded-lg">Print</button>
           <button @click="lastReceipt = null" class="flex-1 py-2.5 text-sm bg-gray-100 rounded-lg">Done</button>
         </div>
       </div>
@@ -142,9 +178,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { posApi } from '@/api/venuepos.api'
+import { posApi, tablesApi } from '@/api/venuepos.api'
 import ShiftOpenModal from '@/components/pos/ShiftOpenModal.vue'
 import ShiftCloseModal from '@/components/pos/ShiftCloseModal.vue'
+import EmployeeSwitchModal from '@/components/pos/EmployeeSwitchModal.vue'
+import TabSettleModal from '@/components/pos/TabSettleModal.vue'
+import OrderActionModal from '@/components/pos/OrderActionModal.vue'
 import YocoPaymentModal from '@/components/pos/YocoPaymentModal.vue'
 import ReceiptPrint from '@/components/pos/ReceiptPrint.vue'
 
@@ -157,30 +196,36 @@ const processing = ref(false)
 const context = ref<{
   shift: Record<string, unknown> | null
   tables: Array<{ id: number; table_number: string; status: string }>
-  tabs: Array<{ id: number; tab_name: string }>
-  employees: Array<{ id: number; first_name: string; last_name: string }>
+  tabs: Array<{ id: number; tab_name: string; total_amount: number }>
   yocoEnabled: boolean
   publicKey: string
   taxRate: number
   currency: string
 } | null>(null)
 
-const products = ref<Array<{ id: number; name: string; category: string; selling_price: number; stock: number; send_to_kitchen: boolean }>>([])
+const products = ref<Array<{ id: number; name: string; category: string; selling_price: number; stock: number }>>([])
 const cart = ref<Array<{ productId: number; name: string; price: number; quantity: number }>>([])
+const todayOrders = ref<Array<Record<string, unknown>>>([])
 const orderType = ref('bar_tab')
 const selectedTableId = ref<number | null>(null)
 const selectedTabId = ref<number | null>(null)
 const paymentMethod = ref('cash')
-const amountTendered = ref<number | null>(null)
 const showShiftOpen = ref(false)
 const showShiftClose = ref(false)
+const showSwitch = ref(false)
+const showTabPanel = ref(false)
+const showOrders = ref(false)
+const showSettle = ref(false)
+const settleTabId = ref<number | null>(null)
 const showYoco = ref(false)
+const actionOrder = ref<Record<string, unknown> | null>(null)
+const actionMode = ref<'void' | 'refund'>('void')
 const lastReceipt = ref<{ order: Record<string, unknown>; items: unknown[]; payments: unknown[] } | null>(null)
 const receiptRef = ref<InstanceType<typeof ReceiptPrint> | null>(null)
 const branchName = ref('')
 
 const currencySymbol = computed(() => {
-  const c = context.value?.currency || 'ZAR'
+  const c = context.value?.currency || 'USD'
   if (c === 'ZAR') return 'R'
   if (c === 'USD') return '$'
   return `${c} `
@@ -222,6 +267,13 @@ async function loadProducts() {
   products.value = data.products
 }
 
+async function refreshOrders() {
+  const { data } = await posApi.getTodayOrders(branchId.value)
+  todayOrders.value = data.orders
+  await loadContext()
+  await loadProducts()
+}
+
 async function completeOrder(yocoToken?: string) {
   processing.value = true
   try {
@@ -232,14 +284,11 @@ async function completeOrder(yocoToken?: string) {
       tabId: selectedTabId.value,
       paymentMethod: paymentMethod.value === 'yoco' ? 'yoco' : paymentMethod.value,
       yocoToken,
-      amountTendered: amountTendered.value,
-      employeeId: context.value?.shift?.employee_id,
       payLater: paymentMethod.value === 'tab',
     })
-    lastReceipt.value = data.receipt
+    if (paymentMethod.value !== 'tab') lastReceipt.value = data.receipt
     cart.value = []
-    amountTendered.value = null
-    await loadContext()
+    await refreshOrders()
   } catch (err) {
     alert((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Checkout failed')
   } finally {
@@ -249,7 +298,7 @@ async function completeOrder(yocoToken?: string) {
 
 function checkout() {
   if (paymentMethod.value === 'tab' && !selectedTabId.value) {
-    alert('Select a tab to charge')
+    alert('Select a tab first')
     return
   }
   if (paymentMethod.value === 'yoco') {
@@ -257,6 +306,24 @@ function checkout() {
     return
   }
   completeOrder()
+}
+
+function openSettle(tabId: number) {
+  settleTabId.value = tabId
+  showSettle.value = true
+}
+
+async function openNewTab() {
+  const name = prompt('Tab name (e.g. Table 5, John)')
+  if (!name) return
+  const { data } = await tablesApi.openTab(branchId.value, { tabName: name })
+  selectedTabId.value = data.tab.id
+  await loadContext()
+}
+
+function openAction(order: Record<string, unknown>, mode: 'void' | 'refund') {
+  actionOrder.value = order
+  actionMode.value = mode
 }
 
 async function onYocoSuccess(token: string) {
@@ -268,9 +335,18 @@ function onShiftOpened(shift: unknown) {
   if (context.value) context.value.shift = shift as Record<string, unknown>
 }
 
+function onEmployeeSwitched(shift: unknown) {
+  if (context.value) context.value.shift = shift as Record<string, unknown>
+}
+
 function onShiftClosed() {
   if (context.value) context.value.shift = null
   showShiftOpen.value = true
+}
+
+async function onTabSettled(data: { receipt?: typeof lastReceipt.value }) {
+  if (data.receipt) lastReceipt.value = data.receipt
+  await refreshOrders()
 }
 
 function printReceipt() {
@@ -280,7 +356,7 @@ function printReceipt() {
 onMounted(async () => {
   branchName.value = auth.branches.find((b) => b.id === branchId.value)?.name || `Branch #${branchId.value}`
   try {
-    await Promise.all([loadContext(), loadProducts()])
+    await Promise.all([loadContext(), loadProducts(), refreshOrders()])
   } finally {
     loading.value = false
   }

@@ -10,6 +10,10 @@
     "db:up": "docker compose up -d mysql",
     "db:down": "docker compose down",
     "db:setup": "docker compose up -d mysql && echo 'Waiting for MySQL...' && sleep 12",
+    "db:seed": "node scripts/seed-sample.mjs",
+    "db:migrate": "node scripts/migrate.mjs",
+    "test": "NODE_ENV=test vitest run",
+    "test:watch": "NODE_ENV=test vitest",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
@@ -70,11 +74,13 @@
     "postcss": "^8.5.6",
     "prettier": "^3.4.2",
     "sass-embedded": "^1.83.4",
+    "supertest": "^7.2.2",
     "tailwindcss": "^4.1.18",
     "ts-node": "^10.9.2",
     "typescript": "~5.7.3",
     "vite": "^6.0.11",
     "vite-plugin-vue-devtools": "^7.7.0",
+    "vitest": "^4.1.8",
     "vue-tsc": "^2.2.0"
   }
 }

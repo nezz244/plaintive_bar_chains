@@ -8,10 +8,42 @@ import {
   fetchOrderReceipt,
   updateShiftSales,
 } from '../lib/orderHelpers.mjs'
+import { recordStockMovement, refreshShiftSoldQty } from '../lib/stockHelpers.mjs'
 import { verifyAndCharge } from '../lib/yoco.mjs'
+import { voidOrder, refundOrder, completeOrderOnTab } from '../lib/orderOperations.mjs'
+import { requireManagerOrAdmin } from '../lib/employeeAuth.mjs'
+import { logAudit } from './auth.routes.mjs'
 
 const router = express.Router()
 router.use(authenticate)
+
+// POST /api/pos/:branchId/verify-pin — identify employee by PIN
+router.post('/:branchId/verify-pin', async (req, res) => {
+  const { pinCode } = req.body
+  if (!pinCode) return res.status(400).json({ error: 'PIN is required' })
+
+  try {
+    const branch = await getBranch(db, req.params.branchId, req.user.company_id)
+    if (!branch) return res.status(404).json({ error: 'Branch not found' })
+
+    const { findEmployeeByPin } = await import('../lib/employeeAuth.mjs')
+    const employee = await findEmployeeByPin(db, branch.id, branch.company_id, pinCode)
+    if (!employee) return res.status(401).json({ error: 'Invalid PIN' })
+
+    res.json({
+      employee: {
+        id: employee.id,
+        firstName: employee.first_name,
+        lastName: employee.last_name,
+        role: employee.role,
+        employeeCode: employee.employee_code,
+      },
+    })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'PIN verification failed' })
+  }
+})
 
 // GET /api/pos/:branchId/products
 router.get('/:branchId/products', async (req, res) => {
@@ -121,6 +153,11 @@ router.post('/:branchId/orders', async (req, res) => {
       return res.status(403).json({ error: 'Open a shift before processing sales' })
     }
 
+    const [[fullShift]] = shift
+      ? await conn.query('SELECT id, employee_id FROM shifts WHERE id = ?', [shift.id])
+      : [[null]]
+    const saleEmployeeId = employeeId || fullShift?.employee_id || null
+
     const [[company]] = await conn.query(
       'SELECT tax_rate, currency FROM companies WHERE id = ?',
       [req.user.company_id]
@@ -141,7 +178,7 @@ router.post('/:branchId/orders', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         branch.company_id, branch.id, shift?.id || null, orderNumber,
-        employeeId || null, req.user.id, tableId || null, tabId || null,
+        saleEmployeeId, req.user.id, tableId || null, tabId || null,
         orderType, paymentMethod, paymentStatus, notes || null, orderStatus,
       ]
     )
@@ -180,8 +217,23 @@ router.post('/:branchId/orders', async (req, res) => {
             'UPDATE branch_stock SET units_available = units_available - ? WHERE branch_id = ? AND product_id = ?',
             [item.quantity, branch.id, product.id]
           )
+          await recordStockMovement(conn, {
+            companyId: branch.company_id,
+            branchId: branch.id,
+            productId: product.id,
+            movementType: 'sale',
+            quantity: -item.quantity,
+            referenceType: 'order',
+            referenceId: orderId,
+            shiftId: shift?.id || null,
+            userId: req.user.id,
+          })
         }
       }
+    }
+
+    if (shift?.id && orderStatus === 'completed') {
+      await refreshShiftSoldQty(conn, shift.id)
     }
 
     const taxAmount = subtotal * (taxRate / 100)
@@ -247,6 +299,97 @@ router.post('/:branchId/orders', async (req, res) => {
   }
 })
 
+// POST /api/pos/:branchId/orders/:orderId/void
+router.post('/:branchId/orders/:orderId/void', async (req, res) => {
+  const { reason, managerPin } = req.body
+  const conn = await db.getConnection()
+
+  try {
+    await conn.beginTransaction()
+
+    const branch = await getBranch(conn, req.params.branchId, req.user.company_id)
+    if (!branch) {
+      await conn.rollback()
+      return res.status(404).json({ error: 'Branch not found' })
+    }
+
+    const [[order]] = await conn.query(
+      'SELECT * FROM orders WHERE id = ? AND branch_id = ? AND company_id = ?',
+      [req.params.orderId, branch.id, req.user.company_id]
+    )
+    if (!order) {
+      await conn.rollback()
+      return res.status(404).json({ error: 'Order not found' })
+    }
+
+    if (order.status === 'completed') {
+      const approver = await requireManagerOrAdmin(req, conn, branch.id, req.user.company_id, managerPin)
+      if (!approver) {
+        await conn.rollback()
+        return res.status(403).json({ error: 'Manager PIN required to void a completed sale' })
+      }
+    }
+
+    await voidOrder(conn, order, { userId: req.user.id, reason, companyId: req.user.company_id })
+    await logAudit(req.user.company_id, req.user.id, 'order.voided', 'order', order.id, { reason }, req)
+    await conn.commit()
+
+    res.json({ message: 'Order voided' })
+  } catch (err) {
+    await conn.rollback()
+    res.status(400).json({ error: err.message || 'Void failed' })
+  } finally {
+    conn.release()
+  }
+})
+
+// POST /api/pos/:branchId/orders/:orderId/refund
+router.post('/:branchId/orders/:orderId/refund', async (req, res) => {
+  const { reason, managerPin, amount } = req.body
+  const conn = await db.getConnection()
+
+  try {
+    await conn.beginTransaction()
+
+    const branch = await getBranch(conn, req.params.branchId, req.user.company_id)
+    if (!branch) {
+      await conn.rollback()
+      return res.status(404).json({ error: 'Branch not found' })
+    }
+
+    const approver = await requireManagerOrAdmin(req, conn, branch.id, req.user.company_id, managerPin)
+    if (!approver) {
+      await conn.rollback()
+      return res.status(403).json({ error: 'Manager PIN required for refunds' })
+    }
+
+    const [[order]] = await conn.query(
+      'SELECT * FROM orders WHERE id = ? AND branch_id = ? AND company_id = ?',
+      [req.params.orderId, branch.id, req.user.company_id]
+    )
+    if (!order) {
+      await conn.rollback()
+      return res.status(404).json({ error: 'Order not found' })
+    }
+
+    const result = await refundOrder(conn, order, {
+      userId: req.user.id,
+      reason,
+      companyId: req.user.company_id,
+      partialAmount: amount,
+    })
+    await logAudit(req.user.company_id, req.user.id, 'order.refunded', 'order', order.id, { reason, amount: result.refundedAmount }, req)
+    await conn.commit()
+
+    res.json({ message: 'Refund processed', ...result })
+  } catch (err) {
+    await conn.rollback()
+    res.status(400).json({ error: err.message || 'Refund failed' })
+  } finally {
+    conn.release()
+  }
+})
+
 // GET /api/pos/orders/:orderId/receipt
 router.get('/orders/:orderId/receipt', async (req, res) => {
   try {
@@ -306,18 +449,32 @@ router.post('/products', async (req, res) => {
       [req.user.company_id]
     )
 
+    const [[company]] = await conn.query(
+      'SELECT warehouse_mode FROM companies WHERE id = ?',
+      [req.user.company_id]
+    )
+    const warehouseMode = company?.warehouse_mode || 'central'
+
     const targetBranches = branchIds.length ? branchIds : branches.map((b) => b.id)
     for (const branchId of targetBranches) {
       await conn.query(
         'INSERT INTO branch_stock (branch_id, product_id, units_available) VALUES (?, ?, 0)',
         [branchId, productId]
       )
+      if (warehouseMode === 'per_branch') {
+        await conn.query(
+          'INSERT INTO warehouse_stock (company_id, branch_id, product_id, cases_available) VALUES (?, ?, ?, 0)',
+          [req.user.company_id, branchId, productId]
+        )
+      }
     }
 
-    await conn.query(
-      'INSERT INTO warehouse_stock (company_id, product_id, cases_available) VALUES (?, ?, 0)',
-      [req.user.company_id, productId]
-    )
+    if (warehouseMode === 'central') {
+      await conn.query(
+        'INSERT INTO warehouse_stock (company_id, branch_id, product_id, cases_available) VALUES (?, NULL, ?, 0)',
+        [req.user.company_id, productId]
+      )
+    }
 
     await conn.commit()
     const [[product]] = await db.query('SELECT * FROM products WHERE id = ?', [productId])

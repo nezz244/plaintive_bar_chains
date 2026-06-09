@@ -1,6 +1,10 @@
 import express from 'express'
 import db from '../db.js'
 import { authenticate } from '../middleware/auth.mjs'
+import { getBranch, getActiveShift, fetchOrderReceipt, updateShiftSales } from '../lib/orderHelpers.mjs'
+import { completeOrderOnTab } from '../lib/orderOperations.mjs'
+import { verifyAndCharge } from '../lib/yoco.mjs'
+import { logAudit } from './auth.routes.mjs'
 
 const router = express.Router()
 router.use(authenticate)
@@ -147,6 +151,175 @@ router.post('/:branchId/tabs', async (req, res) => {
     await conn.rollback()
     console.error(err)
     res.status(500).json({ error: 'Failed to open tab' })
+  } finally {
+    conn.release()
+  }
+})
+
+// GET /api/tables/:branchId/tabs/:tabId
+router.get('/:branchId/tabs/:tabId', async (req, res) => {
+  try {
+    const [[tab]] = await db.query(
+      `SELECT t.*, vt.table_number, vt.label AS table_label
+       FROM tabs t
+       LEFT JOIN venue_tables vt ON vt.id = t.table_id
+       JOIN branches b ON b.id = t.branch_id
+       WHERE t.id = ? AND t.branch_id = ? AND b.company_id = ?`,
+      [req.params.tabId, req.params.branchId, req.user.company_id]
+    )
+    if (!tab) return res.status(404).json({ error: 'Tab not found' })
+
+    const [orders] = await db.query(
+      `SELECT o.id, o.order_number, o.status, o.payment_status, o.subtotal, o.tax_amount,
+              o.total_amount, o.created_at, o.notes,
+              CONCAT(e.first_name, ' ', e.last_name) AS employee_name
+       FROM orders o
+       LEFT JOIN employees e ON e.id = o.employee_id
+       WHERE o.tab_id = ? AND o.status != 'voided'
+       ORDER BY o.created_at ASC`,
+      [tab.id]
+    )
+
+    for (const order of orders) {
+      const [items] = await db.query(
+        `SELECT oi.quantity, oi.unit_price, oi.total_price, p.name AS product_name
+         FROM order_items oi JOIN products p ON p.id = oi.product_id
+         WHERE oi.order_id = ?`,
+        [order.id]
+      )
+      order.items = items
+    }
+
+    const openTotal = orders
+      .filter((o) => o.status === 'open')
+      .reduce((s, o) => s + Number(o.total_amount), 0)
+
+    res.json({ tab, orders, openTotal })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to fetch tab' })
+  }
+})
+
+// POST /api/tables/:branchId/tabs/:tabId/settle
+router.post('/:branchId/tabs/:tabId/settle', async (req, res) => {
+  const {
+    paymentMethod = 'cash',
+    yocoToken,
+    amountTendered,
+    mobileReference,
+    closeTab = true,
+  } = req.body
+
+  const conn = await db.getConnection()
+  try {
+    await conn.beginTransaction()
+
+    const branch = await getBranch(conn, req.params.branchId, req.user.company_id)
+    if (!branch) {
+      await conn.rollback()
+      return res.status(404).json({ error: 'Branch not found' })
+    }
+
+    const shift = await getActiveShift(conn, branch.id, req.user.id)
+    if (!shift) {
+      await conn.rollback()
+      return res.status(403).json({ error: 'Open a shift before settling tabs' })
+    }
+
+    const [[tab]] = await conn.query(
+      `SELECT t.* FROM tabs t
+       JOIN branches b ON b.id = t.branch_id
+       WHERE t.id = ? AND t.branch_id = ? AND b.company_id = ? AND t.status = 'open'`,
+      [req.params.tabId, branch.id, req.user.company_id]
+    )
+    if (!tab) {
+      await conn.rollback()
+      return res.status(404).json({ error: 'Open tab not found' })
+    }
+
+    const [openOrders] = await conn.query(
+      "SELECT * FROM orders WHERE tab_id = ? AND status = 'open' ORDER BY id",
+      [tab.id]
+    )
+    if (!openOrders.length) {
+      await conn.rollback()
+      return res.status(400).json({ error: 'No open orders on this tab' })
+    }
+
+    const [[company]] = await conn.query(
+      'SELECT currency, tax_rate FROM companies WHERE id = ?',
+      [req.user.company_id]
+    )
+
+    let grandTotal = 0
+    for (const order of openOrders) {
+      grandTotal += Number(order.total_amount)
+    }
+
+    if (paymentMethod === 'yoco' && yocoToken) {
+      const amountInCents = Math.round(grandTotal * 100)
+      await verifyAndCharge(
+        req.user.company_id,
+        yocoToken,
+        amountInCents,
+        company.currency || 'ZAR',
+        { tabId: tab.id, branchId: branch.id }
+      )
+    }
+
+    const [[fullShift]] = await conn.query('SELECT id, employee_id FROM shifts WHERE id = ?', [shift.id])
+
+    for (const order of openOrders) {
+      await completeOrderOnTab(conn, order, branch, fullShift, req.user.id)
+      await conn.query(
+        `UPDATE orders SET payment_method = ?, payment_status = 'paid', employee_id = COALESCE(employee_id, ?) WHERE id = ?`,
+        [paymentMethod, fullShift?.employee_id, order.id]
+      )
+      const ref = paymentMethod === 'mobile' && mobileReference
+        ? mobileReference
+        : amountTendered ? `Tendered: ${amountTendered}` : `Tab settlement`
+      await conn.query(
+        `INSERT INTO payments (order_id, amount, method, status, reference, yoco_token)
+         VALUES (?, ?, ?, 'completed', ?, ?)`,
+        [order.id, order.total_amount, paymentMethod, ref, yocoToken || null]
+      )
+    }
+
+    await updateShiftSales(conn, shift.id, paymentMethod, grandTotal)
+
+    if (closeTab) {
+      await conn.query(
+        "UPDATE tabs SET status = 'closed', closed_at = NOW() WHERE id = ?",
+        [tab.id]
+      )
+      if (tab.table_id) {
+        await conn.query("UPDATE venue_tables SET status = 'dirty' WHERE id = ?", [tab.table_id])
+      }
+    }
+
+    await logAudit(req.user.company_id, req.user.id, 'tab.settled', 'tab', tab.id, {
+      paymentMethod,
+      total: grandTotal,
+      orderCount: openOrders.length,
+    }, req)
+
+    await conn.commit()
+
+    const lastOrderId = openOrders[openOrders.length - 1].id
+    const receipt = await fetchOrderReceipt(db, lastOrderId, req.user.company_id)
+
+    res.json({
+      message: 'Tab settled',
+      total: grandTotal,
+      orderCount: openOrders.length,
+      tabClosed: closeTab,
+      receipt,
+    })
+  } catch (err) {
+    await conn.rollback()
+    console.error(err)
+    res.status(400).json({ error: err.message || 'Tab settlement failed' })
   } finally {
     conn.release()
   }

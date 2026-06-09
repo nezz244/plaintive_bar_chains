@@ -34,6 +34,19 @@
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Receipt Footer</label>
           <input v-model="form.receiptFooter" placeholder="e.g. Thank you for visiting!" class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" />
         </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Warehouse Mode</label>
+            <select v-model="form.warehouseMode" class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white">
+              <option value="central">Central warehouse (HQ supplies all branches)</option>
+              <option value="per_branch">Per-branch warehouse</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stock Variance Alert (%)</label>
+            <input v-model.number="form.stockVarianceThreshold" type="number" step="0.5" min="0" class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" />
+          </div>
+        </div>
         <button type="submit" :disabled="saving" class="px-6 py-2.5 text-sm font-medium text-white bg-brand-500 rounded-lg disabled:opacity-50">Save Profile</button>
       </form>
 
@@ -76,7 +89,7 @@ const savingYoco = ref(false)
 const message = ref('')
 const error = ref('')
 
-const form = ref({ name: '', currency: 'USD', taxRate: 0, receiptFooter: '' })
+const form = ref({ name: '', currency: 'USD', taxRate: 0, receiptFooter: '', warehouseMode: 'central', stockVarianceThreshold: 5 })
 const yocoForm = ref({ yocoPublicKey: '', yocoSecretKey: '', yocoWebhookSecret: '' })
 
 async function load() {
@@ -86,6 +99,8 @@ async function load() {
     currency: data.company.currency || 'USD',
     taxRate: Number(data.company.tax_rate || 0),
     receiptFooter: data.company.receipt_footer || '',
+    warehouseMode: data.company.warehouse_mode || 'central',
+    stockVarianceThreshold: Number(data.company.stock_variance_threshold || 5),
   }
 }
 

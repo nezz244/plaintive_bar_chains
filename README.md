@@ -16,7 +16,10 @@ Built with Vue 3 and Express, designed for operators who need a modern back offi
 
 ### Point of sale
 - **Touch-friendly POS terminal** — category product grid, cart, multiple payment methods
+- **Employee PIN accountability** — PIN required to open shift; switch staff mid-shift; sales tied to active employee
 - **Shift management** — open/close shifts with opening cash, sales tracking, and variance reconciliation
+- **Tab settlement** — add orders to tabs, view running totals, settle with cash/card/Yoco/mobile
+- **Void & refund** — void open orders; refund completed sales with manager PIN; stock and shift totals reversed automatically
 - **Table & tab management** — floor plan for dine-in, open bar tabs for walk-ins
 - **Receipt printing** — print-ready receipt after every completed sale
 
@@ -103,6 +106,30 @@ npm run dev      # Frontend only
 
 Open **http://localhost:5173/signup** to create your first company account.
 
+### Load sample data (optional)
+
+After creating your account, populate products, staff, tables, and demo orders:
+
+```bash
+npm run db:migrate   # once, for expenses/stock audit features
+npm run db:seed
+# Or for a specific account:
+npm run db:seed -- --email=you@example.com
+```
+
+This is idempotent — re-running skips sections that already exist.
+
+### Run tests
+
+Requires MySQL running (`npm run db:setup`):
+
+```bash
+npm test           # run once (CI-friendly)
+npm run test:watch # re-run on file changes
+```
+
+Tests cover auth, branches, products, shifts, tables, and cash sales against the live schema.
+
 ---
 
 ## First-time setup walkthrough
@@ -110,12 +137,15 @@ Open **http://localhost:5173/signup** to create your first company account.
 After signing up:
 
 1. **Branches** — add your venues (`/admin/branches`)
-2. **Floor plan** — configure tables and tabs (`/admin/tables`)
-3. **Products** — build your menu; tick "Send to kitchen" for food items (`/admin/products`)
-4. **Team** — add staff and grant system access (`/admin/employees`)
-5. **Settings** — set currency, tax rate, receipt footer, and Yoco keys (`/admin/settings`)
-6. **POS** — open a shift, then start selling (`/pos/:branchId` from the sidebar)
-7. **Kitchen** — display active orders on a tablet (`/kitchen/:branchId`)
+2. **Settings** — warehouse mode (central vs per-branch), variance threshold, tax, Yoco
+3. **Floor plan** — configure tables and tabs (`/admin/tables`)
+4. **Products** — build your menu; tick "Send to kitchen" for food items (`/admin/products`)
+5. **Stock** — release warehouse stock to the floor, record wastage (`/admin/stock`)
+6. **Expenses** — rent, salaries, utilities (`/admin/expenses`)
+7. **Team** — add staff and grant system access (`/admin/employees`)
+8. **POS** — open a shift, sell, then **close with cash + stock count** (`/pos/:branchId`)
+9. **Reports** — P&L and flagged stock audits (`/admin/reports`)
+10. **Kitchen** — display active orders on a tablet (`/kitchen/:branchId`)
 
 ---
 

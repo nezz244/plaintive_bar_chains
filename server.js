@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import { fileURLToPath } from 'url'
 import db from './db.js'
 import authRoutes from './routes/auth.routes.mjs'
 import companyRoutes from './routes/companies.routes.mjs'
@@ -11,6 +12,9 @@ import tableRoutes from './routes/tables.routes.mjs'
 import shiftRoutes from './routes/shifts.routes.mjs'
 import kitchenRoutes from './routes/kitchen.routes.mjs'
 import paymentRoutes, { yocoWebhookHandler } from './routes/payments.routes.mjs'
+import expenseRoutes from './routes/expenses.routes.mjs'
+import stockRoutes from './routes/stock.routes.mjs'
+import reportRoutes from './routes/reports.routes.mjs'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -30,6 +34,9 @@ app.use('/api/tables', tableRoutes)
 app.use('/api/shifts', shiftRoutes)
 app.use('/api/kitchen', kitchenRoutes)
 app.use('/api/payments', paymentRoutes)
+app.use('/api/expenses', expenseRoutes)
+app.use('/api/stock', stockRoutes)
+app.use('/api/reports', reportRoutes)
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'VenuePOS API', version: '2.0.0' })
@@ -54,6 +61,9 @@ async function start() {
   })
 }
 
-start()
+const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url)
+if (isDirectRun && process.env.NODE_ENV !== 'test') {
+  start()
+}
 
 export default app

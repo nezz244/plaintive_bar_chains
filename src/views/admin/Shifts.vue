@@ -2,7 +2,7 @@
   <admin-layout>
     <div class="mb-6">
       <h1 class="text-2xl font-semibold text-gray-800 dark:text-white">Shift History</h1>
-      <p class="text-sm text-gray-500 mt-1">Cash drawer reconciliation across branches</p>
+      <p class="text-sm text-gray-500 mt-1">Cash and stock handover reconciliation</p>
     </div>
 
     <select v-model="selectedBranchId" class="mb-6 px-3 py-2 text-sm border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white">
@@ -16,26 +16,35 @@
             <th class="px-5 py-3 text-left font-medium text-gray-500">Staff</th>
             <th class="px-5 py-3 text-left font-medium text-gray-500">Opened</th>
             <th class="px-5 py-3 text-left font-medium text-gray-500">Closed</th>
-            <th class="px-5 py-3 text-right font-medium text-gray-500">Cash Sales</th>
-            <th class="px-5 py-3 text-right font-medium text-gray-500">Card Sales</th>
             <th class="px-5 py-3 text-right font-medium text-gray-500">Total</th>
-            <th class="px-5 py-3 text-right font-medium text-gray-500">Variance</th>
+            <th class="px-5 py-3 text-right font-medium text-gray-500">Cash Var.</th>
+            <th class="px-5 py-3 text-right font-medium text-gray-500">Stock Var.</th>
+            <th class="px-5 py-3 text-left font-medium text-gray-500">Stock Audit</th>
             <th class="px-5 py-3 text-left font-medium text-gray-500">Status</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="shift in shifts" :key="shift.id" class="border-b border-gray-100 dark:border-gray-800/50">
             <td class="px-5 py-4 font-medium text-gray-800 dark:text-white">{{ shift.employee_name }}</td>
-            <td class="px-5 py-4 text-gray-500">{{ formatDate(shift.start_time) }}</td>
-            <td class="px-5 py-4 text-gray-500">{{ shift.end_time ? formatDate(shift.end_time) : '—' }}</td>
-            <td class="px-5 py-4 text-right">${{ Number(shift.cash_sales).toFixed(2) }}</td>
-            <td class="px-5 py-4 text-right">${{ Number(shift.card_sales).toFixed(2) }}</td>
+            <td class="px-5 py-4 text-gray-500">{{ formatDate(shift.start_time as string) }}</td>
+            <td class="px-5 py-4 text-gray-500">{{ shift.end_time ? formatDate(shift.end_time as string) : '—' }}</td>
             <td class="px-5 py-4 text-right font-medium">${{ Number(shift.total_sales).toFixed(2) }}</td>
             <td class="px-5 py-4 text-right" :class="Number(shift.variance) < 0 ? 'text-red-500' : 'text-green-600'">
               {{ shift.variance != null ? `$${Number(shift.variance).toFixed(2)}` : '—' }}
             </td>
-            <td class="px-5 py-4 capitalize">
-              <span :class="shift.status === 'open' ? 'text-green-600' : 'text-gray-500'" class="text-xs font-medium">{{ shift.status }}</span>
+            <td class="px-5 py-4 text-right" :class="Number(shift.stock_variance_total) > 0 ? 'text-red-500' : ''">
+              {{ shift.stock_variance_total ?? '—' }}
+            </td>
+            <td class="px-5 py-4 capitalize text-xs">{{ shift.stock_audit_status || '—' }}</td>
+            <td class="px-5 py-4">
+              <span :class="shift.status === 'open' ? 'text-green-600' : 'text-gray-500'" class="text-xs font-medium capitalize">{{ shift.status }}</span>
+              <button
+                v-if="auth.isOwnerOrAdmin && shift.stock_audit_status === 'flagged' && selectedBranchId"
+                @click="approve(shift.id as number)"
+                class="ml-2 text-xs text-brand-500 hover:underline"
+              >
+                Approve
+              </button>
             </td>
           </tr>
           <tr v-if="!shifts.length">
@@ -65,6 +74,12 @@ async function load() {
   if (!selectedBranchId.value) return
   const { data } = await shiftsApi.list(selectedBranchId.value)
   shifts.value = data.shifts
+}
+
+async function approve(shiftId: number) {
+  if (!selectedBranchId.value) return
+  await shiftsApi.approveStock(selectedBranchId.value, shiftId, { notes: 'Reviewed by manager' })
+  await load()
 }
 
 watch(selectedBranchId, load)

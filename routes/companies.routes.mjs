@@ -13,6 +13,7 @@ router.get('/current', async (req, res) => {
     const [[company]] = await db.query(
       `SELECT id, name, slug, business_type, email, phone, address, country,
               currency, timezone, logo_url, tax_rate, receipt_footer,
+              warehouse_mode, stock_variance_threshold,
               yoco_public_key, status, subscription_plan, trial_ends_at, created_at
        FROM companies WHERE id = ?`,
       [req.user.company_id]
@@ -36,7 +37,10 @@ router.get('/current', async (req, res) => {
 
 // PUT /api/companies/current
 router.put('/current', requireCompanyRole('owner', 'admin'), async (req, res) => {
-  const { name, businessType, phone, address, country, currency, timezone, taxRate, receiptFooter } = req.body
+  const {
+    name, businessType, phone, address, country, currency, timezone,
+    taxRate, receiptFooter, warehouseMode, stockVarianceThreshold,
+  } = req.body
 
   try {
     await db.query(
@@ -49,9 +53,15 @@ router.put('/current', requireCompanyRole('owner', 'admin'), async (req, res) =>
          currency = COALESCE(?, currency),
          timezone = COALESCE(?, timezone),
          tax_rate = COALESCE(?, tax_rate),
-         receipt_footer = COALESCE(?, receipt_footer)
+         receipt_footer = COALESCE(?, receipt_footer),
+         warehouse_mode = COALESCE(?, warehouse_mode),
+         stock_variance_threshold = COALESCE(?, stock_variance_threshold)
        WHERE id = ?`,
-      [name, businessType, phone, address, country, currency, timezone, taxRate, receiptFooter, req.user.company_id]
+      [
+        name, businessType, phone, address, country, currency, timezone,
+        taxRate, receiptFooter, warehouseMode, stockVarianceThreshold,
+        req.user.company_id,
+      ]
     )
 
     await logAudit(req.user.company_id, req.user.id, 'company.updated', 'company', req.user.company_id, req.body, req)
